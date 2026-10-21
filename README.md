@@ -20,7 +20,10 @@ Configuração na Vercel (Settings → Environment Variables):
 | `NVIDIA_MODEL` | não | modelo a usar; padrão `meta/llama-3.3-70b-instruct` |
 | `ACCESS_CODE` | recomendada | código que o app pede uma vez; sem ele, qualquer pessoa com o link gasta a sua chave |
 
-Aberto direto do computador (sem a Vercel), o app funciona só com a leitura automática abaixo.
+**Teste local com a IA:** copie `.env.example` para `.env.local`, coloque a chave em `NVIDIA_API_KEY` e rode
+`node dev-server.js` (abre em http://localhost:5180). O `.env.local` fica fora do Git.
+
+Aberto direto pelo arquivo `app/index.html`, o app funciona só com a leitura automática abaixo.
 
 ## Como o texto vira PDF (leitura automática)
 

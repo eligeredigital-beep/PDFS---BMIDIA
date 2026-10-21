@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "resumos",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server@14.1.1", "app", "-p", "5180", "-c-1", "-s"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dev-server.js"],
       "port": 5180
     }
   ]

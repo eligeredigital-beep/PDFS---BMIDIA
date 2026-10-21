@@ -100,7 +100,7 @@ module.exports = async function handler(req, res) {
   if (code && req.headers['x-access-code'] !== code) return send(res, 401, { erro: 'Código de acesso inválido.' });
 
   const key = process.env.NVIDIA_API_KEY;
-  if (!key) return send(res, 500, { erro: 'A chave NVIDIA_API_KEY não está configurada na Vercel.' });
+  if (!key) return send(res, 500, { erro: 'A chave NVIDIA_API_KEY não está configurada (na Vercel ou, no teste local, no arquivo .env.local).' });
 
   let body;
   try { body = await readBody(req); } catch { return send(res, 400, { erro: 'Corpo da requisição inválido.' }); }

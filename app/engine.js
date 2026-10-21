@@ -10,7 +10,7 @@
   };
 
   const KEYWORDS = [
-    ['checklist', /^(pr[oó]ximos?\s+passos?|a[cç][õo]es?|tarefas?|encaminhamentos?|pend[eê]ncias?|to-?do|plano de a[cç][aã]o|responsabilidades?)/i],
+    ['checklist', /^(pr[oó]ximos?\s+passos?|a[cç][õo]es?|tarefas?|encaminhamentos?|pend[eê]ncias?|to-?do|plano de a[cç][aã]o|responsabilidades?|check-?list)/i],
     ['atencao', /^(aten[cç][aã]o|observa[cç][õo]es?|alertas?|riscos?|importante|cuidados?|lembretes?|pontos de aten[cç][aã]o)/i],
     ['metricas', /^(resultados?|m[eé]tricas?|n[uú]meros?|desempenho|kpis?|indicadores?)/i],
     ['meta', /^(metas?|objetivos? (de|para|do)|previs[õo]es?|proje[cç][õo]es?)/i],
@@ -18,11 +18,14 @@
     ['texto', /^(contexto|resumo|objetivo( da reuni[aã]o)?|pauta|introdu[cç][aã]o|vis[aã]o geral|panorama|sobre a reuni[aã]o)/i],
   ];
   const BULLET = /^\s*(?:[-•*–·▪]|\d{1,2}[.)])\s+/;
-  const SEP = /\s+[—–-]\s+|\s*\|\s*|\s*;\s*/;
+  const SEP = /\s+[—–-]\s+|\s*\|\s*/;
   const DATE_LIKE = /\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|amanh[ãa]|hoje|semana|at[eé]\s+\w+|segunda|ter[cç]a|quarta|quinta|sexta|s[áa]bado|domingo/i;
+  const NO_DATE = /^sem prazo/i;
   const VALUE_LIKE = /^(?:R\$\s?)?[+\-]?\d[\d.,]*\s?(?:%|x|k|mil|mi|milh[ãa]o|milh[õo]es|pp)?$/i;
+  // Emojis no início da linha (📅, 👥, ✅, 🧑‍💼…), comuns em resumos enviados por WhatsApp.
+  const EMOJI = /^[\p{Extended_Pictographic}‍️⃣\s]+/u;
 
-  const strip = (s) => s.replace(/[*_`]+/g, '').replace(/^#{1,6}\s*/, '').trim();
+  const strip = (s) => s.replace(EMOJI, '').replace(/[*_`]+/g, '').replace(/^#{1,6}\s*/, '').trim();
   const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -33,9 +36,10 @@
   }
 
   function isHeading(raw) {
-    const line = raw.trim();
+    const line = raw.trim().replace(EMOJI, '');
     if (!line || BULLET.test(line)) return null;
-    const md = /^#{1,6}\s+/.test(line) || /^\*\*[^*]+\*\*:?$/.test(line);
+    // ## Título, **Título** ou *Título* / _Título_ (negrito e itálico do WhatsApp)
+    const md = /^#{1,6}\s+/.test(line) || (line.length <= 90 && /^(\*{1,2}[^*]+\*{1,2}|_[^_]+_):?$/.test(line));
     const plain = strip(line);
     const colon = /:$/.test(plain) && plain.length <= 60;
     const caps = plain.length <= 40 && /[A-ZÀ-Ú]{3}/.test(plain) && plain === plain.toUpperCase() && !/\d{3,}/.test(plain);
@@ -92,14 +96,62 @@
     }
     // Um título vazio logo no topo ("## Reunião X — Cliente") é o título do documento.
     const top = sections[0];
-    if (top && !top.lines.length && !top.auto && !meta.titulo) {
+    if (top && !top.lines.length && top.auto !== 'checklist' && !meta.titulo) {
       const [t, c] = top.titulo.split(/\s+[—–-]\s+/);
       meta.titulo = t;
       if (c && !meta.cliente) meta.cliente = c;
     }
-    const real = sections.filter((s) => s.lines.length);
+    const real = groupChecklists(sections).filter((s) => s.lines.length);
     for (const s of real) s.auto = s.auto || (s.lines.some((l) => l.startsWith('• ')) ? 'cards' : 'texto');
     return { meta, sections: real };
+  }
+
+  /* "CHECKLIST FINAL" + "Responsabilidades do Cliente" + "Responsabilidades do Time"
+     viram UM bloco de ações, com uma coluna por subtítulo. */
+  function groupChecklists(sections) {
+    const has = (s) => s && s.auto === 'checklist' && s.lines.some(Boolean);
+    const out = [];
+    for (let i = 0; i < sections.length; i++) {
+      const s = sections[i];
+      const parent = s.auto === 'checklist' && !s.lines.some(Boolean) ? s : null;
+      let j = parent ? i + 1 : i;
+      const cols = [];
+      while (has(sections[j])) cols.push(sections[j++]);
+      if (s.auto === 'checklist' && (cols.length >= 2 || (parent && cols.length))) {
+        out.push({
+          id: s.id,
+          titulo: parent ? parent.titulo : 'Próximos passos',
+          auto: 'checklist',
+          lines: cols.flatMap((c) => c.lines),
+          cols: cols.map((c) => ({ titulo: c.titulo, lines: c.lines })),
+        });
+        i = j - 1;
+        continue;
+      }
+      out.push(s);
+    }
+    return out;
+  }
+
+  /* "Ação — responsável — prazo", "Responsável: ação (25/10)", "Ação — sem prazo definido." */
+  function parseAction(l, knownResp) {
+    let line = l.replace(/\.\s*$/, '');
+    let parts = line.split(SEP).map((x) => x.trim()).filter(Boolean);
+    let acao = parts.shift() || line, resp = '', prazo = '';
+    if (!parts.length) {
+      const par = acao.match(/\s*\(([^)]+)\)$/);
+      if (par) { acao = acao.slice(0, par.index); parts = par[1].split(/\s*[,;]\s*/); }
+    }
+    if (!knownResp) {
+      const pre = acao.match(/^([^:]{2,28}):\s+(.+)$/);
+      if (pre) { resp = pre[1]; acao = pre[2]; }
+    }
+    for (const p of parts) {
+      if (NO_DATE.test(p)) continue;
+      if (!prazo && DATE_LIKE.test(p)) prazo = p;
+      else if (!resp && !knownResp && p.length <= 32) resp = p;
+    }
+    return { t: cap(acao.trim()), tag: prazo, resp };
   }
 
   const items = (s) => s.lines.filter(Boolean).map((l) => l.replace(/^•\s*/, ''));
@@ -130,23 +182,19 @@
       return { tipo, titulo, itens: out };
     }
     if (tipo === 'checklist') {
+      if (s.cols) {
+        const colunas = s.cols.map((c) => ({
+          titulo: cap(c.titulo.replace(/^responsabilidades?\s+(?:d[aoe]s?\s+)?/i, '')),
+          itens: items(c).map((l) => parseAction(l, true)),
+        }));
+        return { tipo, titulo, colunas };
+      }
       const groups = new Map();
       for (const l of it) {
-        let line = l, extra = '';
-        const par = line.match(/\(([^)]+)\)\s*$/);
-        if (par) { extra = par[1]; line = line.replace(par[0], '').trim(); }
-        let parts = line.split(SEP).map((x) => x.trim()).filter(Boolean);
-        if (extra) parts = parts.concat(extra.split(/\s*[,;]\s*/));
-        let acao = parts[0] || line, resp = '', prazo = '';
-        const pre = acao.match(/^([^:]{2,28}):\s+(.+)$/);
-        if (pre) { resp = pre[1]; acao = pre[2]; }
-        for (const p of parts.slice(1)) {
-          if (!prazo && DATE_LIKE.test(p)) prazo = p;
-          else if (!resp && p.length <= 32) resp = p;
-        }
-        const key = resp || 'A definir';
+        const a = parseAction(l, false);
+        const key = a.resp || 'A definir';
         if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push({ t: cap(acao), tag: prazo });
+        groups.get(key).push(a);
       }
       const keys = [...groups.keys()];
       const colunas = keys.length === 1 && keys[0] === 'A definir'

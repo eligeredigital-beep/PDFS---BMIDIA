@@ -5,46 +5,10 @@
 const BM = require('../app/engine.js');
 
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_MODEL = 'meta/llama-3.3-70b-instruct';
+// Melhor resultado nos testes (~25 s). Mais rápido e um pouco mais simples: nvidia/nemotron-3.5-lightning-30b-a3b (~10 s).
+// O llama-3.3-70b foi aposentado pela NVIDIA em 08/2026; troque por NVIDIA_MODEL sem mexer no código.
+const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
 const MAX_CHARS = 40000;
-
-const EXEMPLO = {
-  cliente: 'Doce Ateliê Confeitaria',
-  titulo: 'Resumo da reunião',
-  data: '21/10/2026',
-  participantes: ['Riziel', 'Maria'],
-  blocos: [
-    { tipo: 'texto', titulo: 'Objetivo da reunião', texto: 'Revisar os resultados de setembro e definir as ações do próximo ciclo.' },
-    { tipo: 'metricas', titulo: 'Resultados de setembro', itens: [
-      { valor: 'R$ 1.330', rotulo: 'Investidos (R$ 1.491 com imposto)' },
-      { valor: '312', rotulo: 'Pedidos no período' },
-      { valor: '20 mil', rotulo: 'Pessoas alcançadas' },
-    ] },
-    { tipo: 'destaque', itens: [
-      { valor: 'R$ 33 mil', rotulo: 'Faturamento da loja em setembro, o melhor fora de temporada' },
-      { valor: '2 → 14', rotulo: 'Pedidos mensais no iFood' },
-    ] },
-    { tipo: 'cards', titulo: 'Principais alinhamentos', itens: [
-      { titulo: 'Criativos de melhor desempenho', texto: 'Vídeos com a dona aparecendo e vídeos de produto funcionam melhor.' },
-      { titulo: 'Migração para o cardápio web', texto: 'O pixel da Meta é conectado e os links das campanhas são trocados após a validação.' },
-    ] },
-    { tipo: 'meta', titulo: 'Meta combinada', itens: [
-      { valor: 'ROAS ≥ 3', rotulo: 'Nos primeiros 15 dias com o cardápio web' },
-    ] },
-    { tipo: 'atencao', titulo: 'Pontos de atenção', itens: [
-      'Baixa adição ao carrinho é o principal gargalo e depende do novo cardápio.',
-    ] },
-    { tipo: 'checklist', titulo: 'Checklist final', colunas: [
-      { titulo: 'Responsabilidades do cliente', itens: [
-        { t: 'Enviar o acesso do cardápio web', tag: 'Hoje · 21/10' },
-        { t: 'Gravar vídeos de produto toda semana' },
-      ] },
-      { titulo: 'Responsabilidades do time / gestores', itens: [
-        { t: 'Conectar o pixel da Meta ao cardápio web' },
-      ] },
-    ] },
-  ],
-};
 
 const SISTEMA = `Você organiza resumos de reunião da agência BMidia Digitais (tráfego pago) para virar um PDF.
 Responda APENAS com um objeto JSON válido, sem texto antes ou depois e sem crases.
@@ -62,14 +26,13 @@ Tipos de bloco, nesta ordem quando existirem:
 - "checklist": {"tipo":"checklist","titulo":"Checklist final","colunas":[{"titulo","itens":[{"t","tag"}]}]} — uma coluna por responsável (cliente; time/gestores). "t" começa com verbo no infinitivo. "tag" só quando houver prazo ("Hoje · 21/10", "Até 25/10"); sem prazo, omita "tag".
 
 Regras:
-- Use apenas fatos e números que estão no texto. Nunca invente valores, metas, prazos ou nomes.
+- Use apenas fatos e números que estão no texto. Nunca invente valores, metas, prazos, nomes ou meses (se o texto diz "primeiros 30 dias", não escreva "setembro").
+- Os títulos dos blocos e dos cards saem do assunto do texto.
+- Sem meta numérica combinada no texto, não crie o bloco "meta". Sem prazo citado, não crie "tag".
 - Um número citado num alinhamento pode aparecer também em "metricas" ou "destaque".
 - Português do Brasil, frases curtas e claras, sem emojis e sem markdown.
 - "cliente": nome do cliente ou da empresa. "titulo": "Resumo da reunião", salvo se o texto disser outro.
-- Omita blocos sem conteúdo.
-
-Exemplo de saída (dados fictícios):
-${JSON.stringify(EXEMPLO)}`;
+- Omita blocos sem conteúdo.`;
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -78,11 +41,29 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// Fecha chaves e colchetes que o modelo esqueceu no fim (acontece com respostas longas).
+function closeJson(s) {
+  const stack = [];
+  let inStr = false, esc = false;
+  for (const ch of s) {
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+  return s + (inStr ? '"' : '') + stack.reverse().join('');
+}
+
 function extractJson(content) {
-  const s = String(content || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/```(?:json)?/g, '');
-  const a = s.indexOf('{'), b = s.lastIndexOf('}');
-  if (a < 0 || b <= a) return null;
-  try { return JSON.parse(s.slice(a, b + 1)); } catch { return null; }
+  const s = String(content || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/```(?:json)?/g, '').trim();
+  const a = s.indexOf('{');
+  if (a < 0) return null;
+  const b = s.lastIndexOf('}');
+  for (const cand of [b > a ? s.slice(a, b + 1) : null, closeJson(s.slice(a)), b > a ? closeJson(s.slice(a, b + 1)) : null]) {
+    if (!cand) continue;
+    try { return JSON.parse(cand); } catch {}
+  }
+  return null;
 }
 
 async function readBody(req) {
@@ -122,6 +103,9 @@ module.exports = async function handler(req, res) {
         temperature: 0.2,
         top_p: 0.7,
         max_tokens: 4096,
+        response_format: { type: 'json_object' },
+        // Sem isso, os modelos que "pensam" gastam todos os tokens raciocinando e passam de 60 s.
+        chat_template_kwargs: { enable_thinking: false },
         messages: [
           { role: 'system', content: SISTEMA },
           { role: 'user', content: `Organize este texto de reunião:\n\n${texto}` },

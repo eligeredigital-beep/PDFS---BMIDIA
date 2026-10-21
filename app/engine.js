@@ -422,9 +422,28 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     return parse(texto).sections.some((s) => s.tipado);
   }
 
-  function compor(texto, numeros) {
+  /* Alinhamentos escritos sem "Assunto:" na frente: o texto fica como está, só falta o título curto do cartão. */
+  function itensSemTitulo(texto) {
+    const out = [];
+    for (const s of parse(texto).sections) {
+      const b = build(s, s.auto);
+      if (b.tipo === 'cards') for (const i of b.itens) if (!i.titulo) out.push(i.texto);
+    }
+    return out;
+  }
+
+  // Título vindo da IA: curto (até 6 palavras), sem ponto final nem aspas; vazio se não prestar.
+  function limparTitulo(t) {
+    if (typeof t !== 'string') return '';
+    const w = t.replace(/^["'“”«»\s]+|["'“”«»\s]+$/g, '').replace(/[.:;,!?]+$/, '').split(/\s+/).filter(Boolean);
+    return cap(w.slice(0, 6).join(' ').slice(0, 45).trim());
+  }
+
+  function compor(texto, numeros, titulos) {
     const { meta, sections } = parse(texto);
     const base = sections.map((s) => build(s, s.auto));
+    let k = 0; // o k-ésimo título da IA vai para o k-ésimo alinhamento sem título
+    for (const b of base) if (b.tipo === 'cards') for (const i of b.itens) if (!i.titulo) i.titulo = limparTitulo((titulos || [])[k++]);
     const extra = (numeros || []).filter((b) => b.tipo === 'metricas' || b.tipo === 'destaque' || b.tipo === 'meta');
     const nums = extra.filter((b) => b.tipo !== 'meta');
     // Sem repetir o mesmo número em "Resultados" e "Destaques"; no máximo 6 cartões de resultado.
@@ -442,6 +461,6 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     return sanitize({ cliente: meta.cliente, titulo: meta.titulo, data: meta.data, participantes: meta.participantes, blocos: base });
   }
 
-  root.BM = { TIPOS, parse, build, buildDoc, sanitize, isTemplate, compor };
+  root.BM = { TIPOS, parse, build, buildDoc, sanitize, isTemplate, compor, itensSemTitulo };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.BM;
 })();

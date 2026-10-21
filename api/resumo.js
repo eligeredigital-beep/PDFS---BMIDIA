@@ -38,7 +38,8 @@ Regras:
 - "cliente": nome do cliente ou da empresa. "titulo": "Resumo da reunião", salvo se o texto disser outro.
 - Omita blocos sem conteúdo.`;
 
-// Modo fiel: o texto já está no modelo de resumo. A IA só extrai números; o app mantém o resto como foi escrito.
+// Modo fiel: o texto já está no modelo de resumo. O app mantém o texto como foi escrito;
+// a IA faz duas coisas pequenas, em chamadas separadas e em paralelo: extrair números e dar título curto aos itens sem título.
 const SISTEMA_NUMEROS = `Você extrai números de resumos de reunião da agência BMidia Digitais (tráfego pago).
 Responda APENAS com um objeto JSON válido, sem texto antes ou depois e sem crases.
 
@@ -50,6 +51,10 @@ Blocos possíveis (omita os que não se aplicam):
 - "meta": {"tipo":"meta","titulo":"Meta combinada","itens":[{"valor","rotulo"}]} — só se o texto trouxer uma meta numérica combinada.
 
 Regras: use somente números que estão no texto, exatamente como aparecem. Nunca invente, some ou converta valores. Português do Brasil, sem emojis.`;
+
+const sistemaTitulos = (n) => `Você dá títulos curtos a itens de um resumo de reunião de tráfego pago.
+Responda APENAS com JSON: {"titulos": [string]} com exatamente ${n} títulos, na ordem dos itens.
+Cada título: de 1 a 4 palavras, é um RÓTULO do assunto (como "Entrega", "Cardápio", "Melhor criativo"), nunca uma frase. Não comece copiando o item e não termine com ponto. Use só palavras e fatos do item.`;
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -91,6 +96,45 @@ async function readBody(req) {
   return JSON.parse(raw || '{}');
 }
 
+/* Uma chamada à NVIDIA. Devolve { obj } com o JSON da resposta ou { erro, status, detalhe }. */
+async function chamar(key, { model, system, user, maxTokens, timeoutMs = 55000 }) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let r;
+  try {
+    r = await fetch(NVIDIA_URL, {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        top_p: 0.7,
+        max_tokens: maxTokens,
+        response_format: { type: 'json_object' },
+        // Sem isso, os modelos que "pensam" gastam todos os tokens raciocinando e passam de 60 s.
+        chat_template_kwargs: { enable_thinking: false },
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      }),
+    });
+  } catch (e) {
+    return { status: 504, erro: e.name === 'AbortError' ? 'A NVIDIA demorou demais para responder. Tente de novo.' : 'Não foi possível falar com a NVIDIA.' };
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!r.ok) {
+    const detalhe = (await r.text().catch(() => '')).slice(0, 300);
+    const erro = r.status === 401 || r.status === 403 ? 'A NVIDIA recusou a chave. Confira NVIDIA_API_KEY na Vercel.'
+      : r.status === 429 ? 'Limite de uso da NVIDIA atingido. Espere um pouco e tente de novo.'
+      : `A NVIDIA respondeu com erro ${r.status}.`;
+    return { status: 502, erro, detalhe };
+  }
+  const data = await r.json().catch(() => null);
+  const obj = extractJson(data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content);
+  if (!obj) return { status: 502, erro: 'A IA não devolveu um resumo no formato esperado. Tente de novo.' };
+  return { obj };
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { erro: 'Use POST.' });
 
@@ -107,49 +151,34 @@ module.exports = async function handler(req, res) {
   if (texto.length > MAX_CHARS) return send(res, 413, { erro: `O texto passou de ${MAX_CHARS.toLocaleString('pt-BR')} caracteres. Envie um resumo menor.` });
 
   const fiel = BM.isTemplate(texto);
-  // Extrair números é simples: o modelo rápido basta (~5 s). O grande fica para organizar texto solto.
-  const modelo = fiel ? (process.env.NVIDIA_MODEL_NUMEROS || FAST_MODEL) : (process.env.NVIDIA_MODEL || DEFAULT_MODEL);
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 55000);
-  let r;
-  try {
-    r = await fetch(NVIDIA_URL, {
-      method: 'POST',
-      signal: ctrl.signal,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        model: modelo,
-        temperature: 0.2,
-        top_p: 0.7,
-        max_tokens: fiel ? 1500 : 4096,
-        response_format: { type: 'json_object' },
-        // Sem isso, os modelos que "pensam" gastam todos os tokens raciocinando e passam de 60 s.
-        chat_template_kwargs: { enable_thinking: false },
-        messages: [
-          { role: 'system', content: fiel ? SISTEMA_NUMEROS : SISTEMA },
-          { role: 'user', content: fiel ? `Extraia os números deste resumo de reunião:\n\n${texto}` : `Organize este texto de reunião:\n\n${texto}` },
-        ],
-      }),
+
+  if (!fiel) {
+    const r = await chamar(key, {
+      model: process.env.NVIDIA_MODEL || DEFAULT_MODEL,
+      system: SISTEMA,
+      user: `Organize este texto de reunião:\n\n${texto}`,
+      maxTokens: 4096,
     });
-  } catch (e) {
-    return send(res, 504, { erro: e.name === 'AbortError' ? 'A NVIDIA demorou demais para responder. Tente de novo.' : 'Não foi possível falar com a NVIDIA.' });
-  } finally {
-    clearTimeout(timer);
+    if (r.erro) return send(res, r.status, { erro: r.erro, detalhe: r.detalhe });
+    const resumo = BM.sanitize(r.obj);
+    if (!resumo.blocos.length) return send(res, 502, { erro: 'A IA devolveu um resumo vazio. Tente de novo.' });
+    return send(res, 200, { resumo, modelo: process.env.NVIDIA_MODEL || DEFAULT_MODEL, modo: 'livre' });
   }
 
-  if (!r.ok) {
-    const detalhe = (await r.text().catch(() => '')).slice(0, 300);
-    const erro = r.status === 401 || r.status === 403 ? 'A NVIDIA recusou a chave. Confira NVIDIA_API_KEY na Vercel.'
-      : r.status === 429 ? 'Limite de uso da NVIDIA atingido. Espere um pouco e tente de novo.'
-      : `A NVIDIA respondeu com erro ${r.status}.`;
-    return send(res, 502, { erro, detalhe });
-  }
-
-  const data = await r.json().catch(() => null);
-  const obj = extractJson(data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content);
-  if (!obj) return send(res, 502, { erro: 'A IA não devolveu um resumo no formato esperado. Tente de novo.' });
-
-  const resumo = fiel ? BM.compor(texto, BM.sanitize(obj).blocos) : BM.sanitize(obj);
+  // Modo fiel: números e títulos em chamadas separadas, em paralelo. O modelo rápido basta (menos de 10 s).
+  const modelo = process.env.NVIDIA_MODEL_NUMEROS || FAST_MODEL;
+  const semTitulo = BM.itensSemTitulo(texto);
+  const [num, tit] = await Promise.all([
+    chamar(key, { model: modelo, system: SISTEMA_NUMEROS, user: `Extraia os números deste resumo de reunião:\n\n${texto}`, maxTokens: 1500 }),
+    semTitulo.length
+      ? chamar(key, { model: process.env.NVIDIA_MODEL_TITULOS || modelo, system: sistemaTitulos(semTitulo.length), user: semTitulo.map((t, i) => `${i + 1}. ${t.replace(/\s+/g, ' ')}`).join('\n'), maxTokens: 500, timeoutMs: 30000 })
+      : Promise.resolve({ obj: { titulos: [] } }),
+  ]);
+  // Os números são opcionais: sem eles o resumo sai igual, só sem os cartões de resultado. Erro de chave ou limite, não.
+  if (num.erro && (num.status === 502 && /chave|Limite/.test(num.erro))) return send(res, num.status, { erro: num.erro, detalhe: num.detalhe });
+  const numeros = num.obj ? BM.sanitize(num.obj).blocos : [];
+  const titulos = tit.obj && Array.isArray(tit.obj.titulos) ? tit.obj.titulos : [];
+  const resumo = BM.compor(texto, numeros, titulos);
   if (!resumo.blocos.length) return send(res, 502, { erro: 'A IA devolveu um resumo vazio. Tente de novo.' });
-  return send(res, 200, { resumo, modelo, modo: fiel ? 'fiel' : 'livre' });
+  return send(res, 200, { resumo, modelo, modo: 'fiel', titulosDaIA: titulos.length, itensSemTitulo: semTitulo.length });
 };

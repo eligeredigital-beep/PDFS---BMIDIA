@@ -187,12 +187,45 @@ Fazer o balanço dos primeiros 30 dias de campanhas e alinhar o cardápio digita
     });
   }
 
+  /* Texto único: mostra as mesmas 4 partes dos quadros, achadas dentro do texto colado. */
+  function singleStatus(text) {
+    const ul = $('single-status');
+    ul.innerHTML = '';
+    if (!text.trim()) return;
+    const { meta, sections, blocos } = BM.parse(text);
+    const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+    const conta = (tipo) => {
+      const s = sections.find((x) => x.auto === tipo && x.lines.some(Boolean));
+      if (!s) return '';
+      const b = BM.build(s, tipo);
+      return tipo === 'checklist'
+        ? `${plural(b.colunas.reduce((t, c) => t + c.itens.length, 0), 'item', 'itens')} em ${plural(b.colunas.length, 'coluna', 'colunas')}`
+        : plural(b.itens.length, 'item', 'itens');
+    };
+    const cab = [meta.cliente && 'cliente', meta.data && 'data', meta.participantes && 'participantes', sections.some((x) => x.auto === 'texto') && 'objetivo'].filter(Boolean).join(', ');
+    const linhas = [['1. Cabeçalho e objetivo', cab], ['2. Principais alinhamentos', conta('cards')], ['3. Pontos de atenção', conta('atencao')], ['4. Checklist final', conta('checklist')]];
+    for (const [nome, v] of linhas) {
+      const li = document.createElement('li');
+      li.innerHTML = '<b></b><span></span>';
+      li.firstChild.textContent = nome;
+      li.lastChild.textContent = v ? '✓ ' + v : 'não encontrado';
+      if (v) li.lastChild.className = 'ok';
+      ul.append(li);
+    }
+    if (blocos.length) {
+      const li = document.createElement('li');
+      li.className = 'aviso';
+      li.textContent = 'Parte do texto veio sem quebras de linha, então separei os itens por frase. “Organizar com IA” separa por assunto; para ficar idêntico ao original, cole com as quebras de linha.';
+      ul.append(li);
+    }
+  }
+
   function update() {
     const text = getText();
     store.set('text', src.value);
     store.set('parts', JSON.stringify(q.map((el) => el.value)));
     store.set('mode', mode);
-    if (mode === 'parts') partStatus();
+    if (mode === 'parts') partStatus(); else singleStatus(text);
     const useAi = aiCurrent();
     let meta, sections;
     if (useAi) {

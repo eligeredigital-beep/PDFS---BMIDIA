@@ -20,9 +20,10 @@ Configuração na Vercel (Settings → Environment Variables):
 | `NVIDIA_MODEL` | não | modelo para texto solto; padrão `nvidia/nemotron-3-ultra-550b-a55b` (~25 s) |
 | `NVIDIA_MODEL_NUMEROS` | não | modelo para extrair números de resumos já no modelo; padrão `nvidia/nemotron-3.5-lightning-30b-a3b` (~6 s) |
 | `NVIDIA_MODEL_TITULOS` | não | modelo que dá o título curto aos alinhamentos escritos sem "Assunto:"; padrão igual ao dos números (~1 s) |
+| `NVIDIA_MODEL_DIVISAO` | não | modelo que separa em itens as partes coladas sem quebras de linha; padrão igual ao `NVIDIA_MODEL` |
 | `ACCESS_CODE` | recomendada | código que o app pede uma vez; sem ele, qualquer pessoa com o link gasta a sua chave |
 
-**Colar por partes:** o app tem 4 quadros (cabeçalho e objetivo, alinhamentos, pontos de atenção, checklist). Cada um é lido na hora e ao pé da letra; se faltar o título de uma seção, ele é acrescentado. O modo "Texto único" continua disponível.
+**Colar por partes:** o app tem 4 quadros (cabeçalho e objetivo, alinhamentos, pontos de atenção, checklist). Cada um é lido na hora e ao pé da letra; se faltar o título de uma seção, ele é acrescentado. No modo "Texto único" o texto inteiro é colado de uma vez e dividido nas mesmas 4 partes pelos títulos do modelo, mesmo sem quebras de linha. Com quebras de linha o resultado é idêntico ao "Por partes"; sem elas, a IA separa os itens por assunto (o app confere que nenhuma palavra muda), ou cada frase vira um item.
 
 **Teste local com a IA:** copie `.env.example` para `.env.local`, coloque a chave em `NVIDIA_API_KEY` e rode
 `node dev-server.js` (abre em http://localhost:5180). O `.env.local` fica fora do Git.

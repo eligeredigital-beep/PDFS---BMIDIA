@@ -66,6 +66,11 @@ textarea{resize:vertical;line-height:1.55}
 .part-status.ok{color:#4f5a2c;font-weight:600}
 .part textarea{min-height:92px;font-size:13.5px}
 #single textarea{width:100%}
+.found{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px;font-size:12.5px;line-height:1.35;color:var(--ink-soft)}
+.found li{display:flex;justify-content:space-between;gap:12px}
+.found li b{font-weight:600;color:var(--bm-brown-deep)}
+.found li .ok{color:#4f5a2c;font-weight:600;text-align:right}
+.found li.aviso{display:block;margin-top:4px;color:var(--bm-brown-text)}
 .ai-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px}
 .btn-ai{flex:none;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:0;border-radius:var(--radius-pill);background:var(--bm-brown-deep);color:var(--bm-cream);font-weight:600;font-size:13px;white-space:nowrap;box-shadow:0 2px 8px rgba(102,41,0,.2);transition:background .2s,transform .2s var(--ease),box-shadow .2s var(--ease)}
 .btn-ai:hover:not(:disabled){background:#7a3405;transform:translateY(-1px);box-shadow:0 6px 16px rgba(102,41,0,.26)}

@@ -36,5 +36,13 @@ ok('conteúdo igual ao do texto formatado', () => assert.deepStrictEqual(b.bloco
 ok('uma frase comum que começa com "pontos" não vira título', () =>
   assert.strictEqual(BM.isTemplate('Pontos importantes sobre o cardápio foram discutidos hoje com a cliente.'), false));
 
+ok('linha com ":" ou ponto final nunca vira título vazio (nada some)', () => {
+  for (const linha of ['Meta combinada: 80 conversas.', 'Resultados de setembro: 59 conversas.', 'Responsabilidades do cliente foram combinadas.']) {
+    const p = BM.parse('## Principais alinhamentos\n\n• a\n\n' + linha);
+    const tudo = p.sections.flatMap((s) => s.lines).join(' ');
+    assert.ok(tudo.includes(linha.split(':')[1] ? linha.split(':')[1].trim() : linha), 'sumiu: ' + linha);
+  }
+});
+
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo certo');
 process.exit(falhas ? 1 : 0);

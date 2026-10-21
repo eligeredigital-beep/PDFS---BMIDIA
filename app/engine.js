@@ -55,14 +55,50 @@
       const t = plain.replace(/:$/, '');
       return { title: caps ? cap(t.toLowerCase()) : cap(t), rest: '' };
     }
-    if (plain.length <= 80 && PLAIN_HEAD.test(plain)) return { title: cap(plain), rest: '' };
+    // Título não tem ":" no meio nem termina com ponto: "Meta combinada: 80 conversas." é conteúdo, não título.
+    if (plain.length <= 80 && !plain.includes(':') && !/[.!?]$/.test(plain) && PLAIN_HEAD.test(plain)) return { title: cap(plain), rest: '' };
     const m = plain.match(/^([^:]{3,40}):\s+(.+)$/);
     if (m && tipoFor(m[1]) && (!naLista || PLAIN_HEAD.test(m[1]))) return { title: cap(m[1]), rest: m[2] };
     return null;
   }
 
-  /* texto -> { meta, sections } */
-  function parse(text) {
+  /* ---------- Texto colado de uma vez, às vezes sem quebras de linha ----------
+     Os títulos do modelo marcam as partes. Achados no meio da linha, ganham linha própria, e o resto
+     do leitor funciona como no modo "Por partes". Só conta título com maiúscula ("Pontos de Atenção")
+     seguido de maiúscula: uma frase como "falamos dos pontos de atenção da cliente" não é cortada. */
+  const DECOR = '(?:[\\p{Extended_Pictographic}\\u200d\\ufe0f]\\s*)*\\**\\s*';
+  const MARCOS = new RegExp(DECOR + '(Objetivo da Reuni[aã]o|Principais Alinhamentos|Pontos de Aten[cç][aã]o|Check-?list Final|Pr[oó]ximos Passos|Responsabilidades d[oa]s? (?:Time\\s*\\/\\s*Gestores|Cliente|Time|Gestores|Equipe|Ag[eê]ncia))\\**:?', 'giu');
+  const META_INLINE = new RegExp('\\s+(' + DECOR + '(?:Data|Participantes)\\**:)', 'gu');
+
+  function segmentar(text) {
+    let t = text.replace(/\r/g, '').replace(/[   ]/g, ' ').replace(/[​‌⁠﻿]/g, '');
+    // vários "•" numa linha só: cada um começa um item
+    t = t.split('\n').map((l) => ((l.match(/•/g) || []).length >= 2 ? l.replace(/\s*•\s*/g, '\n• ').replace(/^\n/, '') : l)).join('\n');
+    t = t.replace(MARCOS, (m, nome, off, s) => {
+      if (nome[0] !== nome[0].toUpperCase()) return m;
+      const depois = s.slice(off + m.length).match(/^\s*(\S)/);
+      if (depois && /[a-zà-ÿ]/.test(depois[1])) return m;
+      return '\n\n' + m.trim() + '\n\n';
+    });
+    return t.replace(META_INLINE, '\n$1');
+  }
+
+  const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+  // Frases: termina em . ! ? e a próxima começa com maiúscula ("R$ 1.015" não quebra).
+  const frases = (s) => s.split(/(?<=[.!?…])\s+(?=["“(]?[A-ZÀ-ÖØ-Þ])/u).map((x) => x.trim()).filter(Boolean);
+  // A IA só pode CORTAR o trecho em itens: juntos, os itens têm de ser exatamente o texto original.
+  function validarDivisao(bloco, itens) {
+    if (!Array.isArray(itens) || !itens.length) return null;
+    const limpos = itens.map((x) => (typeof x === 'string' ? x.replace(/^\s*[•\-–*]\s+/, '').trim() : '')).filter(Boolean);
+    return norm(limpos.join(' ')) === norm(bloco) ? limpos : null;
+  }
+
+  /* texto -> { meta, sections, blocos }
+     blocos: trechos de lista que vieram numa linha só (precisam ser divididos em itens).
+     divisoes: { [trecho normalizado]: [itens] } vindo da IA; sem ela, cada frase vira um item. */
+  function parse(text, divisoes) {
+    text = segmentar(text);
+    const blocos = [];
     const meta = {};
     const sections = [];
     let cur = null;
@@ -103,6 +139,17 @@
     for (const s of sections) {
       while (s.lines.length && !s.lines[s.lines.length - 1]) s.lines.pop();
       while (s.lines.length && !s.lines[0]) s.lines.shift();
+      // Lista que veio como um parágrafo só: divide em itens (pela IA, conferida; senão, por frase).
+      const cheias = s.lines.filter(Boolean);
+      if (s.tipado && ['cards', 'atencao', 'checklist'].includes(s.auto) && cheias.length === 1 && !cheias[0].startsWith('• ')) {
+        const fs = frases(cheias[0]);
+        if (fs.length >= 2) {
+          blocos.push({ texto: cheias[0], tipo: s.auto });
+          // No checklist cada ação é uma frase: a divisão por frase já é exata, e juntar duas estragaria o prazo.
+          const ia = s.auto === 'checklist' ? null : validarDivisao(cheias[0], divisoes && divisoes[norm(cheias[0])]);
+          s.lines = (ia || fs).map((x) => '• ' + x);
+        }
+      }
     }
     // Um título vazio logo no topo ("## Reunião X — Cliente") é o título do documento.
     const top = sections[0];
@@ -113,7 +160,7 @@
     }
     const real = groupChecklists(sections).filter((s) => s.lines.length);
     for (const s of real) s.auto = s.auto || (s.lines.some((l) => l.startsWith('• ')) ? 'cards' : 'texto');
-    return { meta, sections: real };
+    return { meta, sections: real, blocos };
   }
 
   /* "CHECKLIST FINAL" + "Responsabilidades do Cliente" + "Responsabilidades do Time"
@@ -423,9 +470,9 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
   }
 
   /* Alinhamentos escritos sem "Assunto:" na frente: o texto fica como está, só falta o título curto do cartão. */
-  function itensSemTitulo(texto) {
+  function itensSemTitulo(texto, divisoes) {
     const out = [];
-    for (const s of parse(texto).sections) {
+    for (const s of parse(texto, divisoes).sections) {
       const b = build(s, s.auto);
       if (b.tipo === 'cards') for (const i of b.itens) if (!i.titulo) out.push(i.texto);
     }
@@ -439,8 +486,8 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     return cap(w.slice(0, 6).join(' ').slice(0, 45).trim());
   }
 
-  function compor(texto, numeros, titulos) {
-    const { meta, sections } = parse(texto);
+  function compor(texto, numeros, titulos, divisoes) {
+    const { meta, sections } = parse(texto, divisoes);
     const base = sections.map((s) => build(s, s.auto));
     let k = 0; // o k-ésimo título da IA vai para o k-ésimo alinhamento sem título
     for (const b of base) if (b.tipo === 'cards') for (const i of b.itens) if (!i.titulo) i.titulo = limparTitulo((titulos || [])[k++]);
@@ -453,7 +500,8 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
       if (b.tipo === 'metricas') b.itens = b.itens.slice(0, 6);
     }
     for (let i = nums.length - 1; i >= 0; i--) if (!nums[i].itens.length) nums.splice(i, 1);
-    const metas = extra.filter((b) => b.tipo === 'meta');
+    // Meta só se o texto falar em meta: o modelo às vezes rotula um resultado ("59 conversas") como meta.
+    const metas = /\bmetas?\b|\balvo\b/i.test(texto) ? extra.filter((b) => b.tipo === 'meta') : [];
     const i0 = base.findIndex((b) => b.tipo === 'texto');
     base.splice(i0 + 1, 0, ...nums);
     const iA = base.findIndex((b) => b.tipo === 'atencao' || b.tipo === 'checklist');
@@ -461,6 +509,6 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     return sanitize({ cliente: meta.cliente, titulo: meta.titulo, data: meta.data, participantes: meta.participantes, blocos: base });
   }
 
-  root.BM = { TIPOS, parse, build, buildDoc, sanitize, isTemplate, compor, itensSemTitulo };
+  root.BM = { TIPOS, parse, build, buildDoc, sanitize, isTemplate, compor, itensSemTitulo, chaveBloco: norm, validarDivisao };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.BM;
 })();

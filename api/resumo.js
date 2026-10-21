@@ -52,6 +52,16 @@ Blocos possíveis (omita os que não se aplicam):
 
 Regras: use somente números que estão no texto, exatamente como aparecem. Nunca invente, some ou converta valores. Português do Brasil, sem emojis.`;
 
+// Para partes coladas como um parágrafo só: a IA apenas CORTA o trecho em itens. O app confere que,
+// juntos, os itens são exatamente o texto original; se não forem, divide por frase.
+const SISTEMA_DIVIDIR = `Você divide um trecho de resumo de reunião em itens de uma lista.
+Responda APENAS com JSON: {"itens": [string]}.
+Regras:
+- Copie o texto EXATAMENTE: não mude, não tire e não acrescente nenhuma palavra, número ou pontuação.
+- Cada item é um pedaço contínuo do trecho, na ordem original; juntos, os itens formam o trecho inteiro.
+- Um item por assunto. Frases que continuam o mesmo assunto ficam no mesmo item (por exemplo, "Estratégia: ..." logo depois de "Melhor criativo: ..." é do mesmo item; "Perfil passou de ... seguidores." logo depois de um resultado é do mesmo item).
+- Um item novo começa quando muda o assunto, muitas vezes numa frase como "Assunto: ...".`;
+
 const sistemaTitulos = (n) => `Você dá títulos curtos a itens de um resumo de reunião de tráfego pago.
 Responda APENAS com JSON: {"titulos": [string]} com exatamente ${n} títulos, na ordem dos itens.
 Cada título: de 1 a 4 palavras, é um RÓTULO do assunto (como "Entrega", "Cardápio", "Melhor criativo"), nunca uma frase. Não comece copiando o item e não termine com ponto. Use só palavras e fatos do item.`;
@@ -165,11 +175,20 @@ module.exports = async function handler(req, res) {
     return send(res, 200, { resumo, modelo: process.env.NVIDIA_MODEL || DEFAULT_MODEL, modo: 'livre' });
   }
 
-  // Modo fiel: números e títulos em chamadas separadas, em paralelo. O modelo rápido basta (menos de 10 s).
+  // Modo fiel: chamadas pequenas e separadas. O modelo rápido basta (menos de 15 s no total).
   const modelo = process.env.NVIDIA_MODEL_NUMEROS || FAST_MODEL;
-  const semTitulo = BM.itensSemTitulo(texto);
+  const numP = chamar(key, { model: modelo, system: SISTEMA_NUMEROS, user: `Extraia os números deste resumo de reunião:\n\n${texto}`, maxTokens: 1500 });
+  // 1) Partes coladas como parágrafo único: a IA corta em itens (em paralelo com os números).
+  const trechos = BM.parse(texto).blocos.filter((b) => b.tipo !== 'checklist').map((b) => b.texto);
+  const divs = await Promise.all(trechos.map((b) =>
+    // Cortar por assunto exige o modelo grande: nos testes, o rápido variava entre 10 e 14 itens; o grande dava sempre o mesmo.
+    chamar(key, { model: process.env.NVIDIA_MODEL_DIVISAO || DEFAULT_MODEL, system: SISTEMA_DIVIDIR, user: b, maxTokens: 3000, timeoutMs: 40000 })
+      .then((r) => [BM.chaveBloco(b), r.obj && r.obj.itens, BM.validarDivisao(b, r.obj && r.obj.itens) ? 1 : 0])));
+  const divisoes = Object.fromEntries(divs.filter((d) => Array.isArray(d[1])).map((d) => [d[0], d[1]]));
+  // 2) Itens que ficaram sem "Assunto:" ganham título curto.
+  const semTitulo = BM.itensSemTitulo(texto, divisoes);
   const [num, tit] = await Promise.all([
-    chamar(key, { model: modelo, system: SISTEMA_NUMEROS, user: `Extraia os números deste resumo de reunião:\n\n${texto}`, maxTokens: 1500 }),
+    numP,
     semTitulo.length
       ? chamar(key, { model: process.env.NVIDIA_MODEL_TITULOS || modelo, system: sistemaTitulos(semTitulo.length), user: semTitulo.map((t, i) => `${i + 1}. ${t.replace(/\s+/g, ' ')}`).join('\n'), maxTokens: 500, timeoutMs: 30000 })
       : Promise.resolve({ obj: { titulos: [] } }),
@@ -178,7 +197,11 @@ module.exports = async function handler(req, res) {
   if (num.erro && (num.status === 502 && /chave|Limite/.test(num.erro))) return send(res, num.status, { erro: num.erro, detalhe: num.detalhe });
   const numeros = num.obj ? BM.sanitize(num.obj).blocos : [];
   const titulos = tit.obj && Array.isArray(tit.obj.titulos) ? tit.obj.titulos : [];
-  const resumo = BM.compor(texto, numeros, titulos);
+  const resumo = BM.compor(texto, numeros, titulos, divisoes);
   if (!resumo.blocos.length) return send(res, 502, { erro: 'A IA devolveu um resumo vazio. Tente de novo.' });
-  return send(res, 200, { resumo, modelo, modo: 'fiel', titulosDaIA: titulos.length, itensSemTitulo: semTitulo.length });
+  return send(res, 200, {
+    resumo, modelo, modo: 'fiel',
+    titulosDaIA: titulos.length, itensSemTitulo: semTitulo.length,
+    trechosDivididos: divs.reduce((n, d) => n + d[2], 0), trechos: trechos.length,
+  });
 };

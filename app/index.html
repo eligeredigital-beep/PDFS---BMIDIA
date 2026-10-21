@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resumos de reunião — BMidia Digitais</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar">
+  <img class="bar-logo" src="assets/logos/bmidia-logo-bege.png" alt="BMidia Digitais">
+  <span class="bar-title">Resumos de reunião</span>
+  <div class="bar-tabs" role="tablist" aria-label="Alternar painel">
+    <button role="tab" aria-selected="true" data-tab="edit">Texto</button>
+    <button role="tab" aria-selected="false" data-tab="preview">Prévia</button>
+  </div>
+  <button class="btn-primary" id="download" disabled>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+    <span><span class="lbl-long">Baixar </span>PDF</span>
+  </button>
+</header>
+
+<main class="work">
+  <section class="editor" aria-label="Conteúdo do resumo">
+    <div class="field field-paste">
+      <div class="field-head">
+        <label for="src">Texto da reunião</label>
+        <div class="links">
+          <button class="link" id="sample">Usar exemplo</button>
+          <button class="link" id="clear">Limpar</button>
+        </div>
+      </div>
+      <textarea id="src" spellcheck="false" placeholder="Cole aqui as anotações ou o resumo da reunião.
+
+Títulos como “Decisões:”, “Resultados:” ou “Próximos passos:” viram seções do PDF. Linhas com “-” viram itens."></textarea>
+    </div>
+
+    <fieldset class="group">
+      <legend>Cabeçalho</legend>
+      <div class="grid">
+        <label class="field"><span>Cliente</span><input id="cliente" autocomplete="off" placeholder="Nome do cliente"></label>
+        <label class="field"><span>Data</span><input id="data" autocomplete="off" placeholder="dd/mm/aaaa"></label>
+        <label class="field span2"><span>Título</span><input id="titulo" autocomplete="off" placeholder="Resumo da reunião"></label>
+        <label class="field span2"><span>Participantes <small>um por linha</small></span><textarea id="participantes" rows="2" placeholder="Nome — função"></textarea></label>
+      </div>
+    </fieldset>
+
+    <section class="group" aria-labelledby="secs-h">
+      <h2 id="secs-h" class="legend">Seções do PDF</h2>
+      <p class="hint" id="secs-empty">As seções aparecem aqui assim que você colar o texto. Troque o formato de cada uma se a leitura automática errar.</p>
+      <ol class="secs" id="secs"></ol>
+    </section>
+  </section>
+
+  <section class="preview" aria-label="Prévia do PDF">
+    <div class="preview-meta" aria-live="polite"><span id="pages"></span></div>
+    <div class="stage" id="stage">
+      <div class="paper-wrap" id="wrap">
+        <iframe id="doc" title="Prévia do PDF" tabindex="-1"></iframe>
+      </div>
+      <div class="empty" id="empty">
+        <img src="assets/logos/bmidia-logo-marrom-escuro.png" alt="">
+        <p class="empty-title">Cole o texto e o resumo <i>aparece aqui</i></p>
+        <p>Cada título vira uma seção com a identidade BMidia. Quando estiver pronto, é só baixar o PDF.</p>
+        <button class="btn-ghost" id="sample2">Ver com um exemplo</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="fonts.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

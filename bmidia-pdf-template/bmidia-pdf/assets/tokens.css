@@ -1,0 +1,37 @@
+/* BMidia Digitais — Design Tokens (extraídos do carrossel "Tayna.pdf") */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Hanken+Grotesk:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@400;500&family=Inter:wght@400;500&display=swap');
+
+:root {
+  /* Cores de marca */
+  --bm-brown:        #876047; /* marrom principal (fundo dominante) */
+  --bm-brown-deep:   #662900; /* marrom profundo (textos/blocos em fundo claro) */
+  --bm-brown-text:   #94430D; /* marrom-ferrugem (texto sobre creme) */
+  --bm-olive:        #6C6948; /* verde oliva (capa/mockups) */
+  --bm-beige:        #CABDAA; /* bege do logo */
+  --bm-sand:         #DFD2C1; /* areia (texto sobre fundos escuros) */
+  --bm-cream:        #FFF8EF; /* creme (fundos claros) */
+  --bm-offwhite:     #F7F6F1; /* off-white (fundos de cards) */
+  --bm-dark:         #1B1B13; /* quase-preto oliva (overlays) */
+  --bm-dark-brown:   #61544F; /* marrom-acinzentado (overlay de foto) */
+  --bm-gold:         #DFB956; /* dourado (variação buffets) */
+  --bm-red:          #CD2438; /* vermelho (destaque de palavra-chave) */
+  --bm-white:        #FFFFFF;
+  --bm-black:        #000000;
+
+  /* Fontes */
+  --font-display: 'Tan Aegean', 'Playfair Display', Georgia, serif; /* títulos elegantes */
+  --font-body:    'Montserrat', 'Hanken Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --font-ui:      'Hanken Grotesk', 'Inter', sans-serif; /* subtítulos/linhas finas */
+  --font-impact:  'Helvetica World', 'Helvetica Neue', Arial, sans-serif; /* faixas de impacto (bold, caixa alta) */
+
+  /* Escala tipográfica (base 1080x1350) */
+  --fs-display: 96px;  --fs-h1: 72px; --fs-h2: 56px; --fs-h3: 40px;
+  --fs-body: 32px;     --fs-small: 24px; --fs-caption: 20px;
+  --lh-tight: 0.95;    --lh-body: 1.45;
+  --ls-wide: 0.18em;   /* "DIGITAIS", rótulos espaçados */
+
+  /* Forma */
+  --radius-pill: 999px; --radius-card: 24px; --radius-block: 0;
+  --space-1: 8px; --space-2: 16px; --space-3: 24px; --space-4: 40px; --space-5: 64px;
+  --page-margin: 96px;
+}

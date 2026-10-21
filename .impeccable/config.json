@@ -1,0 +1,32 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "montserrat",
+        "createdAt": "2026-10-21T13:45:50.007Z",
+        "reason": "Brand design system mandates Montserrat as body face"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "app/index.html"
+        ],
+        "createdAt": "2026-10-21T13:45:50.176Z",
+        "reason": "Brand token cream #FFF8EF is the BMidia light background per DESIGN-SYSTEM.md"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "app/styles.css"
+        ],
+        "createdAt": "2026-10-21T13:45:50.272Z",
+        "reason": "L27 is a 1px divider between logo and title in the top bar, not a card accent"
+      }
+    ]
+  }
+}

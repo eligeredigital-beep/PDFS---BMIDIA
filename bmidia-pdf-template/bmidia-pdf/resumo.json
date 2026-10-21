@@ -1,0 +1,23 @@
+{
+  "cliente": "Cliente Exemplo Confeitaria",
+  "titulo": "Resumo da reunião",
+  "data": "21/10/2026",
+  "participantes": ["Riziel Francys — Gestor de tráfego", "Maria Souza — Proprietária"],
+  "contexto": "Alinhamento mensal para revisar os resultados das campanhas de tráfego pago e definir as ações para o próximo ciclo. Este é um texto de exemplo para validar o layout do PDF.",
+  "resultados": [
+    {"valor": "R$ 42 mil", "rotulo": "Faturamento atribuído"},
+    {"valor": "8,4x", "rotulo": "Retorno sobre o investimento"},
+    {"valor": "312", "rotulo": "Pedidos no período"}
+  ],
+  "decisoes": [
+    "Aumentar o orçamento diário das campanhas de melhor desempenho",
+    "Testar novos criativos com foco em produtos de data comemorativa",
+    "Manter o público de remarketing ativo durante todo o mês"
+  ],
+  "proximos_passos": [
+    {"acao": "Subir novos criativos em Reels", "responsavel": "BMidia", "prazo": "25/10"},
+    {"acao": "Enviar fotos dos novos produtos", "responsavel": "Cliente", "prazo": "24/10"},
+    {"acao": "Reunião de acompanhamento", "responsavel": "Todos", "prazo": "04/11"}
+  ],
+  "observacoes": "Qualquer ajuste de orçamento será comunicado antes de ser aplicado."
+}

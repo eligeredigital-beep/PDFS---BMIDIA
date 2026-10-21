@@ -19,13 +19,18 @@ function loadEnv() {
 }
 loadEnv();
 
-const handler = require('./api/resumo.js');
+
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.woff': 'font/woff', '.json': 'application/json' };
 const APP = path.join(ROOT, 'app');
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/api/resumo') { loadEnv(); return handler(req, res); }
+  if (url.pathname === '/api/resumo') {
+    loadEnv();
+    // Recarrega o código a cada pedido: alterar o leitor ou o prompt vale na hora, sem reiniciar.
+    for (const f of ['./api/resumo.js', './app/engine.js']) delete require.cache[require.resolve(f)];
+    return require('./api/resumo.js')(req, res);
+  }
   const rel = decodeURIComponent(url.pathname).replace(/^\/(app\/)?/, '') || 'index.html';
   const file = path.join(APP, rel);
   if (!file.startsWith(APP + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {

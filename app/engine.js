@@ -38,7 +38,12 @@
     return null;
   }
 
-  function isHeading(raw) {
+  // Títulos conhecidos que valem mesmo sem formatação: texto copiado de Docs, Word ou PDF perde o
+  // negrito, os emojis e os marcadores. Linha inteira, curta e exata, para não pegar frases comuns.
+  const PLAIN_HEAD = /^(resumo da reuni[aã]o.*|objetivo( da reuni[aã]o)?|contexto|principais alinhamentos|alinhamentos|decis[õo]es|pontos? de aten[cç][aã]o|aten[cç][aã]o|observa[cç][õo]es|riscos|alertas|resultados( d[eo] .+)?|m[eé]tricas|metas?( .+)?|check-?list( final)?|pr[oó]ximos passos|responsabilidades d[oa]s? .+)$/i;
+
+  // naLista: a seção aberta é uma lista de itens; ali "Resultado do período: 59…" é um item, não um título.
+  function isHeading(raw, naLista = false) {
     const line = raw.trim().replace(EMOJI, '');
     if (!line || BULLET.test(line)) return null;
     // ## Título, **Título** ou *Título* / _Título_ (negrito e itálico do WhatsApp)
@@ -50,8 +55,9 @@
       const t = plain.replace(/:$/, '');
       return { title: caps ? cap(t.toLowerCase()) : cap(t), rest: '' };
     }
+    if (plain.length <= 80 && PLAIN_HEAD.test(plain)) return { title: cap(plain), rest: '' };
     const m = plain.match(/^([^:]{3,40}):\s+(.+)$/);
-    if (m && tipoFor(m[1])) return { title: cap(m[1]), rest: m[2] };
+    if (m && tipoFor(m[1]) && (!naLista || PLAIN_HEAD.test(m[1]))) return { title: cap(m[1]), rest: m[2] };
     return null;
   }
 
@@ -77,7 +83,7 @@
         meta.participantes = m[2].split(/\s*[;,]\s*|\s+e\s+/).map((x) => x.trim()).filter(Boolean);
         continue;
       }
-      const h = isHeading(raw);
+      const h = isHeading(raw, !!cur && ['cards', 'atencao', 'checklist', 'metricas', 'meta'].includes(cur.auto));
       if (h) {
         const tipo = tipoFor(h.title);
         if (/^(participantes|presentes)$/i.test(h.title)) { cur = { participantes: true, lines: [] }; meta._pend = cur; continue; }

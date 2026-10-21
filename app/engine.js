@@ -370,8 +370,39 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
       titulo: S(o.titulo, 90),
       data: S(o.data, 30),
       participantes: list(o.participantes).map((p) => S(p, 90)).filter(Boolean).slice(0, 12),
-      blocos,
+      blocos: padronizar(blocos),
     };
+  }
+
+  /* Títulos fixos do modelo BMidia: a IA escolhe o conteúdo, não o nome das seções.
+     Vários blocos de alinhamentos viram um só; o título dos resultados é o dela, se houver. */
+  const TITULO_FIXO = {
+    texto: 'Objetivo da reunião',
+    cards: 'Principais alinhamentos',
+    meta: 'Meta combinada',
+    atencao: 'Pontos de atenção',
+    checklist: 'Checklist final',
+  };
+  function padronizar(blocos) {
+    const out = [];
+    let cards = null, texto = false;
+    for (const b of blocos) {
+      if (b.tipo === 'cards') {
+        if (cards) { cards.itens = cards.itens.concat(b.itens).slice(0, 20); continue; }
+        cards = b;
+      }
+      if (b.tipo === 'texto') { if (!texto) { texto = true; b.titulo = TITULO_FIXO.texto; } out.push(b); continue; }
+      if (TITULO_FIXO[b.tipo]) b.titulo = TITULO_FIXO[b.tipo];
+      else if (b.tipo === 'metricas' && !b.titulo) b.titulo = 'Resultados do período';
+      if (b.tipo === 'checklist') {
+        for (const c of b.colunas) {
+          if (/cliente/i.test(c.titulo)) c.titulo = 'Responsabilidades do cliente';
+          else if (/time|gestor|bmidia|ag[eê]ncia|equipe/i.test(c.titulo)) c.titulo = 'Responsabilidades do time / gestores';
+        }
+      }
+      out.push(b);
+    }
+    return out;
   }
 
   root.BM = { TIPOS, parse, build, buildDoc, sanitize };

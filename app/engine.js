@@ -60,8 +60,9 @@
     const meta = {};
     const sections = [];
     let cur = null;
-    const start = (title, tipo) => {
-      cur = { id: sections.length + ':' + title.toLowerCase(), titulo: title, auto: tipo, lines: [] };
+    // tipado: o título da seção é conhecido ("Principais alinhamentos", "Checklist final"…), não adivinhado.
+    const start = (title, tipo, tipado = !!tipo) => {
+      cur = { id: sections.length + ':' + title.toLowerCase(), titulo: title, auto: tipo, tipado, lines: [] };
       sections.push(cur);
     };
     const lines = text.replace(/\r/g, '').split('\n');
@@ -85,7 +86,7 @@
         continue;
       }
       if (cur && cur.participantes) { cur.lines.push(clean); continue; }
-      if (!cur) start('Contexto', 'texto');
+      if (!cur) start('Contexto', 'texto', false);
       cur.lines.push(BULLET.test(raw) ? '• ' + clean : clean);
     }
     if (meta._pend) {
@@ -125,6 +126,7 @@
           id: s.id,
           titulo: parent ? parent.titulo : 'Próximos passos',
           auto: 'checklist',
+          tipado: true,
           lines: cols.flatMap((c) => c.lines),
           cols: cols.map((c) => ({ titulo: c.titulo, lines: c.lines })),
         });
@@ -347,10 +349,10 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
         const itens = stats(b.itens);
         if (itens.length) out = { tipo: b.tipo, titulo, itens };
       } else if (b.tipo === 'cards') {
-        const itens = list(b.itens).map((c) => (typeof c === 'string' ? { titulo: '', texto: S(c, 900) } : { titulo: S(c && c.titulo, 90), texto: S(c && c.texto, 900) })).filter((c) => c.texto).slice(0, 20);
+        const itens = list(b.itens).map((c) => (typeof c === 'string' ? { titulo: '', texto: S(c, 900) } : { titulo: S(c && c.titulo, 90), texto: S(c && c.texto, 900) })).filter((c) => c.texto).slice(0, 80);
         if (itens.length) out = { tipo: 'cards', titulo, itens };
       } else if (b.tipo === 'atencao') {
-        const itens = list(b.itens).map((x) => S(x, 600)).filter(Boolean).slice(0, 12);
+        const itens = list(b.itens).map((x) => S(x, 600)).filter(Boolean).slice(0, 40);
         if (itens.length) out = { tipo: 'atencao', titulo, itens };
       } else if (b.tipo === 'checklist') {
         const colunas = list(b.colunas).map((c) => ({
@@ -359,7 +361,7 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
             const t = typeof i === 'string' ? S(i, 400) : S(i && i.t, 400);
             const tag = typeof i === 'string' ? '' : S(i && i.tag, 40);
             return { t, tag: NO_DATE.test(tag) ? '' : tag };
-          }).filter((i) => i.t).slice(0, 20),
+          }).filter((i) => i.t).slice(0, 60),
         })).filter((c) => c.itens.length).slice(0, 3);
         if (colunas.length) out = { tipo: 'checklist', titulo, colunas };
       }
@@ -388,7 +390,7 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     let cards = null, texto = false;
     for (const b of blocos) {
       if (b.tipo === 'cards') {
-        if (cards) { cards.itens = cards.itens.concat(b.itens).slice(0, 20); continue; }
+        if (cards) { cards.itens = cards.itens.concat(b.itens).slice(0, 80); continue; }
         cards = b;
       }
       if (b.tipo === 'texto') { if (!texto) { texto = true; b.titulo = TITULO_FIXO.texto; } out.push(b); continue; }
@@ -408,10 +410,10 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
   /* ---------- Modo fiel ----------
      Texto no modelo de resumo (títulos + marcadores): o conteúdo sai exatamente como foi escrito.
      A IA só extrai números e destaques; ela nunca reescreve os alinhamentos. */
+  // Basta UMA seção com título conhecido: quem cola um quadro de cada vez nunca tem o resumo completo,
+  // e mandar texto parcial para a IA livre faz ela resumir e perder itens.
   function isTemplate(texto) {
-    const { sections } = parse(texto);
-    const tipos = new Set(sections.map((s) => s.auto));
-    return sections.length >= 3 && tipos.has('checklist') && (tipos.has('cards') || tipos.has('atencao'));
+    return parse(texto).sections.some((s) => s.tipado);
   }
 
   function compor(texto, numeros) {

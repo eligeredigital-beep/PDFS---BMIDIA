@@ -29,6 +29,7 @@ Tipos de bloco, nesta ordem quando existirem:
 Regras:
 - Use apenas fatos e números que estão no texto. Nunca invente valores, metas, prazos, nomes ou meses (se o texto diz "primeiros 30 dias", não escreva "setembro").
 - Títulos de bloco FIXOS, exatamente assim: "Objetivo da reunião", "Principais alinhamentos", "Meta combinada", "Pontos de atenção", "Checklist final". Em "metricas" use "Resultados do período" (ou "Resultados de <mês>" se o texto citar o mês).
+- NÃO omita nem junte assuntos: cada assunto, decisão ou alinhamento citado no texto vira um item próprio. Se o texto lista 10, devolva 10.
 - Todos os alinhamentos e decisões ficam em UM ÚNICO bloco "cards" ("Principais alinhamentos"), um item por assunto. Nunca crie vários blocos "cards" nem agrupe por tema. Só o "titulo" de cada item (2 a 5 palavras) sai do assunto.
 - Colunas da checklist: "Responsabilidades do cliente" e "Responsabilidades do time / gestores".
 - Sem meta numérica combinada no texto, não crie o bloco "meta". Sem prazo citado, não crie "tag".

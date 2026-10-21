@@ -53,6 +53,18 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--bm-brown
 textarea{resize:vertical;line-height:1.55}
 #src{min-height:300px;height:42vh;font-size:14px;scrollbar-color:var(--bm-beige) transparent}
 
+.ai-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:12px}
+.btn-ai{flex:none;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 18px;border:0;border-radius:var(--radius-pill);background:var(--bm-brown-deep);color:var(--bm-cream);font-weight:600;font-size:13px;white-space:nowrap;box-shadow:0 2px 8px rgba(102,41,0,.2);transition:background .2s,transform .2s var(--ease),box-shadow .2s var(--ease)}
+.btn-ai:hover:not(:disabled){background:#7a3405;transform:translateY(-1px);box-shadow:0 6px 16px rgba(102,41,0,.26)}
+.btn-ai:disabled{cursor:progress;opacity:.85}
+.btn-ai svg{width:17px;height:17px}
+.btn-ai .ico{fill:var(--bm-gold)}
+.btn-ai .spin{display:none;fill:none;stroke:var(--bm-gold);stroke-width:2.4;stroke-linecap:round;animation:spin .8s linear infinite}
+.btn-ai.loading .ico{display:none}
+.btn-ai.loading .spin{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-status{margin:0;font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
+
 .group{margin:28px 0 0;padding:24px 0 0;border:0;border-top:1px solid var(--line);min-width:0}
 .group legend,.legend{padding:0;margin:0 0 14px;font:400 21px/1.2 'Playfair Display',serif;color:var(--bm-brown-deep)}
 .group legend{float:left;width:100%}

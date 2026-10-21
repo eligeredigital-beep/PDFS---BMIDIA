@@ -1,0 +1,4 @@
+{
+  "redirects": [{ "source": "/", "destination": "/app/", "permanent": false }],
+  "functions": { "api/resumo.js": { "maxDuration": 60 } }
+}

@@ -57,9 +57,22 @@ Próximos passos:
   const ICON_UNDO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h11a5 5 0 0 1 0 10h-2"/></svg>';
 
   function countLabel(s) {
+    if (s.ai) {
+      const b = s.ai;
+      const n = b.paras ? b.paras.length : b.colunas ? b.colunas.reduce((t, c) => t + c.itens.length, 0) : b.itens.length;
+      return b.paras ? (n === 1 ? '1 parágrafo' : n + ' parágrafos') : n === 1 ? '1 item' : n + ' itens';
+    }
     const n = s.lines.filter(Boolean).length;
     return n === 1 ? '1 linha' : n + ' linhas';
   }
+
+  // Resultado da IA: vale enquanto o texto colado for o mesmo que foi enviado.
+  let ai = null;
+  try {
+    const saved = JSON.parse(store.get('ai') || 'null');
+    if (saved && saved.text && saved.resumo) ai = { text: saved.text, resumo: BM.sanitize(saved.resumo), modelo: saved.modelo };
+  } catch {}
+  const aiCurrent = () => ai && ai.text === src.value;
 
   function renderSecs(sections) {
     const ol = $('secs');
@@ -74,7 +87,7 @@ Próximos passos:
       li.dataset.id = s.id;
       const opts = Object.entries(BM.TIPOS).map(([k, v]) => `<option value="${k}"${k === tipo ? ' selected' : ''}>${v}</option>`).join('');
       li.innerHTML = `<div class="sec-name"></div>
-        <select aria-label="Formato da seção"${off ? ' disabled' : ''}>${opts}</select>
+        <select aria-label="Formato da seção"${off || s.ai ? ' disabled' : ''}${s.ai ? ' title="Formato escolhido pela IA"' : ''}>${opts}</select>
         <button class="icon-btn" aria-label="${off ? 'Incluir seção de novo' : 'Tirar seção do PDF'}" title="${off ? 'Incluir de novo' : 'Tirar do PDF'}">${off ? ICON_UNDO : ICON_X}</button>`;
       const name = li.querySelector('.sec-name');
       name.textContent = s.titulo;
@@ -98,9 +111,10 @@ Próximos passos:
     const doc = frame.contentDocument;
     if (doc && doc.body) {
       frame.style.height = '0px';
-      docHeight = Math.max(1123, doc.documentElement.scrollHeight);
+      const h = doc.documentElement.scrollHeight;
+      docHeight = Math.max(1123, h);
       // A4 útil ≈ 297mm − margens (16 + 20mm) ≈ 986px por página; a 1ª não tem margem de topo.
-      const pages = Math.max(1, Math.ceil((docHeight - 1047) / 986) + 1);
+      const pages = h <= 1047 ? 1 : Math.ceil((h - 1047) / 986) + 1;
       $('pages').textContent = pages === 1 ? '1 página' : `cerca de ${pages} páginas`;
     }
     const avail = stage.clientWidth - parseFloat(getComputedStyle(stage).paddingLeft) * 2;
@@ -115,7 +129,15 @@ Próximos passos:
   function update() {
     const text = src.value;
     store.set('text', text);
-    const { meta, sections } = BM.parse(text);
+    const useAi = aiCurrent();
+    let meta, sections;
+    if (useAi) {
+      meta = ai.resumo;
+      sections = ai.resumo.blocos.map((b, i) => ({ id: 'ai:' + i, titulo: b.titulo || BM.TIPOS[b.tipo], auto: b.tipo, ai: b }));
+    } else {
+      ({ meta, sections } = BM.parse(text));
+    }
+    renderAiStatus();
 
     // Campos que a pessoa não editou acompanham o texto colado.
     for (const k of ['cliente', 'data', 'titulo']) if (!dirty[k]) fields[k].value = meta[k] || '';
@@ -129,7 +151,7 @@ Próximos passos:
     $('download').disabled = !has;
     if (!has) { $('pages').textContent = ''; return; }
 
-    const blocos = sections.filter((s) => (overrides[s.id] || s.auto) !== 'omitir').map((s) => BM.build(s, overrides[s.id] || s.auto));
+    const blocos = sections.filter((s) => (overrides[s.id] || s.auto) !== 'omitir').map((s) => s.ai || BM.build(s, overrides[s.id] || s.auto));
     const d = {
       cliente: fields.cliente.value.trim(),
       data: fields.data.value.trim(),
@@ -160,9 +182,57 @@ Próximos passos:
     frame.contentWindow.print();
   });
 
+  function renderAiStatus() {
+    const st = $('ai-status');
+    if (aiCurrent()) st.textContent = `Organizado pela IA (${(ai.modelo || '').split('/').pop()}). Confira antes de baixar.`;
+    else if (ai && src.value.trim()) st.textContent = 'O texto mudou desde a última organização. Organize de novo para atualizar.';
+    else st.textContent = 'Sem IA, o texto é lido pelos títulos e marcadores.';
+  }
+
+  const aiBtn = $('ai');
+  async function organize() {
+    if (!src.value.trim()) { toast('Cole o texto da reunião primeiro.'); src.focus(); return; }
+    aiBtn.disabled = true;
+    aiBtn.classList.add('loading');
+    aiBtn.querySelector('.lbl').textContent = 'Organizando…';
+    wrap.classList.add('busy');
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const code = store.get('code');
+      if (code) headers['x-access-code'] = code;
+      const r = await fetch('/api/resumo', { method: 'POST', headers, body: JSON.stringify({ texto: src.value }) });
+      if (r.status === 401) {
+        const c = prompt(code ? 'Código de acesso incorreto. Digite de novo:' : 'Digite o código de acesso do gerador:');
+        if (c) { store.set('code', c.trim()); return organize(); }
+        throw new Error('Sem o código de acesso, a IA não pode ser usada.');
+      }
+      if (r.status === 404 || r.status === 405) throw new TypeError('sem função');
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.resumo) throw new Error((j && j.erro) || `Erro ${r.status} ao organizar o resumo.`);
+      ai = { text: src.value, resumo: BM.sanitize(j.resumo), modelo: j.modelo };
+      store.set('ai', JSON.stringify(ai));
+      overrides = {};
+      update();
+      setTab('preview');
+      toast('Resumo organizado pela IA. Confira os números antes de baixar.');
+    } catch (e) {
+      wrap.classList.remove('busy');
+      toast(location.protocol === 'file:' || e instanceof TypeError
+        ? 'A IA só funciona pelo endereço da Vercel. Aberto direto do computador, o app usa a leitura automática.'
+        : e.message);
+    } finally {
+      aiBtn.disabled = false;
+      aiBtn.classList.remove('loading');
+      aiBtn.querySelector('.lbl').textContent = 'Organizar com IA';
+    }
+  }
+  aiBtn.addEventListener('click', organize);
+
   const loadSample = () => {
     for (const k in fields) { fields[k].value = ''; dirty[k] = false; }
     overrides = {};
+    ai = null;
+    store.set('ai', '');
     src.value = SAMPLE;
     update();
     setTab('preview');
@@ -173,6 +243,8 @@ Próximos passos:
     src.value = '';
     for (const k in fields) { fields[k].value = ''; dirty[k] = false; }
     overrides = {};
+    ai = null;
+    store.set('ai', '');
     update();
     src.focus();
   });

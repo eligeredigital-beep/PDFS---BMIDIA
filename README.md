@@ -6,7 +6,23 @@ Gerador de PDFs de resumo de reunião no padrão visual da BMidia Digitais.
 - `bmidia-design-system/` — tokens de cor e tipografia, guia da marca e logos.
 - `bmidia-pdf-template/` — template original em Python (`generate.py`, requer WeasyPrint) e exemplos de JSON.
 
-## Como o texto vira PDF
+## Organizar com IA (NVIDIA)
+
+O botão **Organizar com IA** envia o texto para `api/resumo.js`, uma função da Vercel que chama a API da
+NVIDIA (build.nvidia.com) e devolve o resumo no formato de blocos do PDF (o mesmo de `resumo-kellen.json`):
+números, destaques, alinhamentos com título, metas, pontos de atenção e checklist por responsável.
+
+Configuração na Vercel (Settings → Environment Variables):
+
+| Variável | Obrigatória | O que é |
+|---|---|---|
+| `NVIDIA_API_KEY` | sim | chave criada em build.nvidia.com (começa com `nvapi-`) |
+| `NVIDIA_MODEL` | não | modelo a usar; padrão `meta/llama-3.3-70b-instruct` |
+| `ACCESS_CODE` | recomendada | código que o app pede uma vez; sem ele, qualquer pessoa com o link gasta a sua chave |
+
+Aberto direto do computador (sem a Vercel), o app funciona só com a leitura automática abaixo.
+
+## Como o texto vira PDF (leitura automática)
 
 Linhas `Cliente:`, `Data:` e `Participantes:` preenchem o cabeçalho. Cada título vira uma seção:
 "Resultados" → cartões de número, "Decisões" → tópicos, "Metas" → metas, "Atenção" → alertas,

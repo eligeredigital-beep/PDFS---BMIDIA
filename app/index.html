@@ -25,15 +25,41 @@
   <section class="editor" aria-label="Conteúdo do resumo">
     <div class="field field-paste">
       <div class="field-head">
-        <label for="src">Texto da reunião</label>
+        <div class="seg" role="tablist" aria-label="Como colar o texto">
+          <button type="button" role="tab" id="m-parts" aria-selected="true">Por partes</button>
+          <button type="button" role="tab" id="m-single" aria-selected="false">Texto único</button>
+        </div>
         <div class="links">
           <button class="link" id="sample">Usar exemplo</button>
           <button class="link" id="clear">Limpar</button>
         </div>
       </div>
-      <textarea id="src" spellcheck="false" placeholder="Cole aqui as anotações ou o resumo da reunião.
+
+      <div id="parts" class="parts">
+        <div class="part">
+          <div class="part-head"><label for="q1">1. Cabeçalho e objetivo</label><span class="part-status" id="s1"></span></div>
+          <textarea id="q1" rows="5" spellcheck="false" placeholder="Cole do título “Resumo da Reunião” até o “Objetivo da Reunião”."></textarea>
+        </div>
+        <div class="part">
+          <div class="part-head"><label for="q2">2. Principais alinhamentos</label><span class="part-status" id="s2"></span></div>
+          <textarea id="q2" rows="5" spellcheck="false" placeholder="Cole os “Principais Alinhamentos”, com todos os itens."></textarea>
+        </div>
+        <div class="part">
+          <div class="part-head"><label for="q3">3. Pontos de atenção</label><span class="part-status" id="s3"></span></div>
+          <textarea id="q3" rows="4" spellcheck="false" placeholder="Cole os “Pontos de Atenção”."></textarea>
+        </div>
+        <div class="part">
+          <div class="part-head"><label for="q4">4. Checklist final</label><span class="part-status" id="s4"></span></div>
+          <textarea id="q4" rows="5" spellcheck="false" placeholder="Cole o “Checklist Final”, com as responsabilidades do cliente e do time."></textarea>
+        </div>
+      </div>
+
+      <div id="single" hidden>
+        <label class="sr-only" for="src">Texto da reunião</label>
+        <textarea id="src" spellcheck="false" placeholder="Cole aqui as anotações ou o resumo da reunião inteiro.
 
 Títulos como “Decisões:”, “Resultados:” ou “Próximos passos:” viram seções do PDF. Linhas com “-” viram itens."></textarea>
+      </div>
       <div class="ai-row">
         <button class="btn-ai" id="ai" type="button">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>
@@ -65,7 +91,7 @@ Títulos como “Decisões:”, “Resultados:” ou “Próximos passos:” vir
     <div class="preview-meta" aria-live="polite"><span id="pages"></span></div>
     <div class="stage" id="stage">
       <div class="paper-wrap" id="wrap">
-        <iframe id="doc" title="Prévia do PDF" tabindex="-1"></iframe>
+        <iframe id="doc" title="Prévia do PDF" tabindex="-1" scrolling="no"></iframe>
       </div>
       <div class="empty" id="empty">
         <img src="assets/logos/bmidia-logo-marrom-escuro.png" alt="">

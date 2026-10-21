@@ -2,41 +2,69 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const src = $('src'), frame = $('doc'), wrap = $('wrap'), stage = $('stage');
+  const q = [$('q1'), $('q2'), $('q3'), $('q4')];
+  let mode = 'parts'; // 'parts' (4 quadros) ou 'single' (texto único)
+
+  /* Cada quadro vira uma seção do modelo. Se a pessoa não colou o título da seção, ele é acrescentado. */
+  const PARTES = [
+    null, // 1: cabeçalho + objetivo: vem completo, com os próprios títulos
+    { re: /^\W*(principais\s+alinhamentos|alinhamentos|decis[õo]es)/i, titulo: 'Principais alinhamentos' },
+    { re: /^\W*(pontos?\s+de\s+aten[cç][aã]o|aten[cç][aã]o|riscos|alertas)/i, titulo: 'Pontos de atenção' },
+    { re: /^\W*(check-?list|pr[oó]ximos\s+passos|a[cç][õo]es)/i, titulo: 'Checklist final' },
+  ];
+  function partText(i, v) {
+    v = (v || '').trim();
+    if (!v) return '';
+    const p = PARTES[i];
+    if (!p) return v;
+    const first = v.split('\n').find((l) => l.trim()) || '';
+    const semEmoji = first.replace(/^[\p{Extended_Pictographic}‍️\s]+/u, '');
+    return p.re.test(semEmoji.replace(/[*_#]/g, '')) ? v : `## ${p.titulo}\n\n${v}`;
+  }
+  const getText = () => (mode === 'parts' ? q.map((el, i) => partText(i, el.value)).filter(Boolean).join('\n\n') : src.value);
   const fields = { cliente: $('cliente'), data: $('data'), titulo: $('titulo'), participantes: $('participantes') };
   const dirty = {};
   let overrides = {};
   let docHeight = 1123;
 
-  const SAMPLE = `Cliente: Doce Ateliê Confeitaria
-Data: 21/10/2026
-Participantes: Riziel Francys — Gestor de tráfego; Maria Souza — Proprietária
+  // Exemplo no modelo de resumo, um texto por quadro (cliente fictício).
+  const SAMPLE_PARTES = [
+`*Resumo da Reunião – Doce Ateliê Confeitaria (Maria)*
 
-Contexto:
-Alinhamento mensal para revisar os resultados das campanhas de tráfego pago de setembro e definir as ações do próximo ciclo, com foco nas encomendas de fim de ano.
+📅 *Data:* 21/10/2026
+👥 *Participantes:* Riziel, Maria
 
-Resultados:
-- Faturamento atribuído: R$ 42 mil
-- Retorno sobre o investimento: 8,4x
-- Pedidos no período: 312
+🎯 *Objetivo da Reunião*
 
-Decisões:
-- Orçamento: aumentar em 20% o diário das campanhas de melhor desempenho
-- Criativos: testar novos vídeos com foco nos kits de Natal
-- Remarketing: manter o público ativo durante todo o mês
+Fazer o balanço dos primeiros 30 dias de campanhas e alinhar o cardápio digital.`,
+`🔑 *Principais Alinhamentos*
 
-Metas para novembro:
-- Faturamento: R$ 55 mil
-- Pedidos: 400
+• Campanhas iniciadas em 24/09: investimento de R$ 1.015 sem impostos (R$ 1.139 com impostos), abaixo do combinado por pausas na troca de cardápio.
 
-Atenção:
-- Qualquer ajuste de orçamento será comunicado antes de ser aplicado
-- Fotos dos novos produtos precisam chegar até 24/10 para não atrasar as campanhas
+• Resultado do período: 59 conversas no WhatsApp e alcance de mais de 26.000 pessoas.
 
-Próximos passos:
-- Subir novos criativos em Reels — BMidia — 25/10
-- Ajustar públicos de remarketing — BMidia — 26/10
-- Enviar fotos dos kits de Natal — Cliente — 24/10
-- Confirmar preços da tabela de fim de ano — Cliente — 28/10`;
+• Melhor criativo: vídeos da Maria montando o bolo (18 conversas, custo de R$ 9,95 por mensagem).
+
+• Entrega: começa com entregador do bairro e, na falta dele, entrega sob demanda.`,
+`⚠️ *Pontos de Atenção*
+
+• Falta de tempo da Maria para produzir conteúdo é o principal gargalo.
+
+• Frete alto na entrega sob demanda faz clientes desistirem.`,
+`✅ *CHECKLIST FINAL*
+
+🧑‍💼 *Responsabilidades do Cliente*
+
+• Gravar mais vídeos de bolos para stories e feed — sem prazo definido.
+
+• Retornar ao Riziel sobre o cardápio — hoje (21/10).
+
+🧑‍💻 *Responsabilidades do Time / Gestores*
+
+• Subir os criativos nas campanhas — hoje ou amanhã (21/10 ou 22/10).
+
+• Enviar vídeo explicando as respostas rápidas do WhatsApp — sem prazo definido.`,
+  ];
 
   const today = () => new Date().toLocaleDateString('pt-BR');
   const store = {
@@ -72,7 +100,7 @@ Próximos passos:
     const saved = JSON.parse(store.get('ai') || 'null');
     if (saved && saved.text && saved.resumo) ai = { text: saved.text, resumo: BM.sanitize(saved.resumo), modelo: saved.modelo };
   } catch {}
-  const aiCurrent = () => ai && ai.text === src.value;
+  const aiCurrent = () => ai && ai.text === getText();
 
   function renderSecs(sections) {
     const ol = $('secs');
@@ -114,6 +142,7 @@ Próximos passos:
     if (doc && doc.body) {
       // Mede a altura real da página (sem redução) para contar as páginas.
       doc.documentElement.style.zoom = '';
+      doc.documentElement.style.overflow = 'hidden'; // a página rola no painel, não dentro dela
       frame.style.width = '794px';
       frame.style.height = '0px';
       const h = doc.documentElement.scrollHeight;
@@ -131,9 +160,39 @@ Próximos passos:
   }
 
   let renderT;
+  /* O que cada quadro entendeu, mostrado assim que a pessoa cola. */
+  function partStatus() {
+    const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+    q.forEach((el, i) => {
+      const s = $('s' + (i + 1));
+      const txt = partText(i, el.value);
+      s.className = 'part-status';
+      if (!txt) { s.textContent = ''; return; }
+      const { meta, sections } = BM.parse(txt);
+      let msg = '';
+      if (i === 0) {
+        const got = [meta.cliente && 'cliente', meta.data && 'data', meta.participantes && plural(meta.participantes.length, 'participante', 'participantes')].filter(Boolean);
+        const obj = sections.some((x) => x.auto === 'texto');
+        msg = [got.join(', '), obj && 'objetivo'].filter(Boolean).join(' · ');
+        if (!msg) { s.textContent = 'Não achei cliente, data nem objetivo'; return; }
+      } else {
+        const sec = sections.find((x) => x.lines.some(Boolean));
+        if (!sec) { s.textContent = 'Não achei itens'; return; }
+        const b = BM.build(sec, i === 3 ? 'checklist' : i === 2 ? 'atencao' : 'cards');
+        const n = b.itens ? b.itens.length : b.colunas.reduce((t, c) => t + c.itens.length, 0);
+        msg = i === 3 ? `${plural(n, 'item', 'itens')} em ${plural(b.colunas.length, 'coluna', 'colunas')}` : plural(n, 'item', 'itens');
+      }
+      s.textContent = '✓ ' + msg;
+      s.classList.add('ok');
+    });
+  }
+
   function update() {
-    const text = src.value;
-    store.set('text', text);
+    const text = getText();
+    store.set('text', src.value);
+    store.set('parts', JSON.stringify(q.map((el) => el.value)));
+    store.set('mode', mode);
+    if (mode === 'parts') partStatus();
     const useAi = aiCurrent();
     let meta, sections;
     if (useAi) {
@@ -156,7 +215,8 @@ Próximos passos:
     $('download').disabled = !has;
     if (!has) { $('pages').textContent = ''; return; }
 
-    const blocos = sections.filter((s) => (overrides[s.id] || s.auto) !== 'omitir').map((s) => s.ai || BM.build(s, overrides[s.id] || s.auto));
+    // Mesmos títulos fixos do modelo, com ou sem IA.
+    const blocos = BM.sanitize({ blocos: sections.filter((s) => (overrides[s.id] || s.auto) !== 'omitir').map((s) => s.ai || BM.build(s, overrides[s.id] || s.auto)) }).blocos;
     const d = {
       cliente: fields.cliente.value.trim(),
       data: fields.data.value.trim(),
@@ -194,13 +254,14 @@ Próximos passos:
   function renderAiStatus() {
     const st = $('ai-status');
     if (aiCurrent()) st.textContent = `Organizado pela IA (${(ai.modelo || '').split('/').pop()}). Confira antes de baixar.`;
-    else if (ai && src.value.trim()) st.textContent = 'O texto mudou desde a última organização. Organize de novo para atualizar.';
+    else if (ai && getText().trim()) st.textContent = 'O texto mudou desde a última organização. Organize de novo para atualizar.';
     else st.textContent = 'Sem IA, o texto é lido pelos títulos e marcadores.';
   }
 
   const aiBtn = $('ai');
   async function organize() {
-    if (!src.value.trim()) { toast('Cole o texto da reunião primeiro.'); src.focus(); return; }
+    const texto = getText();
+    if (!texto.trim()) { toast('Cole o texto da reunião primeiro.'); (mode === 'parts' ? q[0] : src).focus(); return; }
     aiBtn.disabled = true;
     aiBtn.classList.add('loading');
     aiBtn.querySelector('.lbl').textContent = 'Organizando…';
@@ -209,7 +270,7 @@ Próximos passos:
       const headers = { 'Content-Type': 'application/json' };
       const code = store.get('code');
       if (code) headers['x-access-code'] = code;
-      const r = await fetch('/api/resumo', { method: 'POST', headers, body: JSON.stringify({ texto: src.value }) });
+      const r = await fetch('/api/resumo', { method: 'POST', headers, body: JSON.stringify({ texto }) });
       if (r.status === 401) {
         const c = prompt(code ? 'Código de acesso incorreto. Digite de novo:' : 'Digite o código de acesso do gerador:');
         if (c) { store.set('code', c.trim()); return organize(); }
@@ -218,7 +279,7 @@ Próximos passos:
       if (r.status === 404 || r.status === 405) throw new TypeError('sem função');
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.resumo) throw new Error((j && j.erro) || `Erro ${r.status} ao organizar o resumo.`);
-      ai = { text: src.value, resumo: BM.sanitize(j.resumo), modelo: j.modelo };
+      ai = { text: texto, resumo: BM.sanitize(j.resumo), modelo: j.modelo };
       store.set('ai', JSON.stringify(ai));
       overrides = {};
       update();
@@ -237,29 +298,41 @@ Próximos passos:
   }
   aiBtn.addEventListener('click', organize);
 
-  const loadSample = () => {
+  function setMode(m) {
+    mode = m;
+    $('parts').hidden = m !== 'parts';
+    $('single').hidden = m !== 'single';
+    $('m-parts').setAttribute('aria-selected', String(m === 'parts'));
+    $('m-single').setAttribute('aria-selected', String(m === 'single'));
+  }
+  $('m-parts').addEventListener('click', () => { setMode('parts'); update(); });
+  $('m-single').addEventListener('click', () => { setMode('single'); update(); });
+
+  const resetAll = () => {
     for (const k in fields) { fields[k].value = ''; dirty[k] = false; }
     overrides = {};
     ai = null;
     store.set('ai', '');
-    src.value = SAMPLE;
+  };
+  const loadSample = () => {
+    resetAll();
+    q.forEach((el, i) => { el.value = SAMPLE_PARTES[i]; });
+    setMode('parts');
     update();
     setTab('preview');
   };
   $('sample').addEventListener('click', loadSample);
   $('sample2').addEventListener('click', loadSample);
   $('clear').addEventListener('click', () => {
+    resetAll();
     src.value = '';
-    for (const k in fields) { fields[k].value = ''; dirty[k] = false; }
-    overrides = {};
-    ai = null;
-    store.set('ai', '');
+    q.forEach((el) => { el.value = ''; });
     update();
-    src.focus();
+    (mode === 'parts' ? q[0] : src).focus();
   });
 
   let inputT;
-  src.addEventListener('input', () => { clearTimeout(inputT); inputT = setTimeout(update, 250); });
+  for (const el of [src, ...q]) el.addEventListener('input', () => { clearTimeout(inputT); inputT = setTimeout(update, 250); });
   for (const [k, el] of Object.entries(fields)) {
     el.addEventListener('input', () => { dirty[k] = el.value.trim() !== ''; clearTimeout(inputT); inputT = setTimeout(update, 250); });
   }
@@ -274,5 +347,7 @@ Próximos passos:
   new ResizeObserver(fitPaper).observe(stage);
   setTab('edit');
   src.value = store.get('text') || '';
+  try { (JSON.parse(store.get('parts') || '[]') || []).slice(0, 4).forEach((v, i) => { q[i].value = String(v || ''); }); } catch {}
+  setMode(store.get('mode') === 'single' ? 'single' : 'parts');
   update();
 })();

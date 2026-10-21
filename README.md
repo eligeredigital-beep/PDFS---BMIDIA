@@ -21,6 +21,8 @@ Configuração na Vercel (Settings → Environment Variables):
 | `NVIDIA_MODEL_NUMEROS` | não | modelo para extrair números de resumos já no modelo; padrão `nvidia/nemotron-3.5-lightning-30b-a3b` (~6 s) |
 | `ACCESS_CODE` | recomendada | código que o app pede uma vez; sem ele, qualquer pessoa com o link gasta a sua chave |
 
+**Colar por partes:** o app tem 4 quadros (cabeçalho e objetivo, alinhamentos, pontos de atenção, checklist). Cada um é lido na hora e ao pé da letra; se faltar o título de uma seção, ele é acrescentado. O modo "Texto único" continua disponível.
+
 **Teste local com a IA:** copie `.env.example` para `.env.local`, coloque a chave em `NVIDIA_API_KEY` e rode
 `node dev-server.js` (abre em http://localhost:5180). O `.env.local` fica fora do Git.
 

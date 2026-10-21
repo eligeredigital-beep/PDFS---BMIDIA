@@ -17,7 +17,8 @@ Configuração na Vercel (Settings → Environment Variables):
 | Variável | Obrigatória | O que é |
 |---|---|---|
 | `NVIDIA_API_KEY` | sim | chave criada em build.nvidia.com (começa com `nvapi-`) |
-| `NVIDIA_MODEL` | não | modelo a usar; padrão `nvidia/nemotron-3-ultra-550b-a55b` (~25 s). Mais rápido: `nvidia/nemotron-3.5-lightning-30b-a3b` (~10 s) |
+| `NVIDIA_MODEL` | não | modelo para texto solto; padrão `nvidia/nemotron-3-ultra-550b-a55b` (~25 s) |
+| `NVIDIA_MODEL_NUMEROS` | não | modelo para extrair números de resumos já no modelo; padrão `nvidia/nemotron-3.5-lightning-30b-a3b` (~6 s) |
 | `ACCESS_CODE` | recomendada | código que o app pede uma vez; sem ele, qualquer pessoa com o link gasta a sua chave |
 
 **Teste local com a IA:** copie `.env.example` para `.env.local`, coloque a chave em `NVIDIA_API_KEY` e rode

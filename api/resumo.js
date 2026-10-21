@@ -8,6 +8,7 @@ const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 // Melhor resultado nos testes (~25 s). Mais rápido e um pouco mais simples: nvidia/nemotron-3.5-lightning-30b-a3b (~10 s).
 // O llama-3.3-70b foi aposentado pela NVIDIA em 08/2026; troque por NVIDIA_MODEL sem mexer no código.
 const DEFAULT_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b';
+const FAST_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b';
 const MAX_CHARS = 40000;
 
 const SISTEMA = `Você organiza resumos de reunião da agência BMidia Digitais (tráfego pago) para virar um PDF.
@@ -35,6 +36,19 @@ Regras:
 - Português do Brasil, frases curtas e claras, sem emojis e sem markdown.
 - "cliente": nome do cliente ou da empresa. "titulo": "Resumo da reunião", salvo se o texto disser outro.
 - Omita blocos sem conteúdo.`;
+
+// Modo fiel: o texto já está no modelo de resumo. A IA só extrai números; o app mantém o resto como foi escrito.
+const SISTEMA_NUMEROS = `Você extrai números de resumos de reunião da agência BMidia Digitais (tráfego pago).
+Responda APENAS com um objeto JSON válido, sem texto antes ou depois e sem crases.
+
+Formato: {"blocos": [bloco]}
+
+Blocos possíveis (omita os que não se aplicam):
+- "metricas": {"tipo":"metricas","titulo":"Resultados do período","itens":[{"valor","rotulo"}]} — números do período (investimento, conversas, vendas, alcance, seguidores). 3 a 6 itens. "valor" curto (até 12 caracteres: "R$ 1.015", "59", "26 mil", "+200"); detalhes vão no "rotulo". Use "Resultados de <mês>" no título só se o texto citar o mês.
+- "destaque": {"tipo":"destaque","itens":[{"valor","rotulo"}]} — 1 ou 2 resultados mais marcantes (melhor criativo, recorde, virada). Sem título.
+- "meta": {"tipo":"meta","titulo":"Meta combinada","itens":[{"valor","rotulo"}]} — só se o texto trouxer uma meta numérica combinada.
+
+Regras: use somente números que estão no texto, exatamente como aparecem. Nunca invente, some ou converta valores. Português do Brasil, sem emojis.`;
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -91,7 +105,9 @@ module.exports = async function handler(req, res) {
   if (!texto) return send(res, 400, { erro: 'Cole o texto da reunião antes de organizar.' });
   if (texto.length > MAX_CHARS) return send(res, 413, { erro: `O texto passou de ${MAX_CHARS.toLocaleString('pt-BR')} caracteres. Envie um resumo menor.` });
 
-  const modelo = process.env.NVIDIA_MODEL || DEFAULT_MODEL;
+  const fiel = BM.isTemplate(texto);
+  // Extrair números é simples: o modelo rápido basta (~5 s). O grande fica para organizar texto solto.
+  const modelo = fiel ? (process.env.NVIDIA_MODEL_NUMEROS || FAST_MODEL) : (process.env.NVIDIA_MODEL || DEFAULT_MODEL);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 55000);
   let r;
@@ -104,13 +120,13 @@ module.exports = async function handler(req, res) {
         model: modelo,
         temperature: 0.2,
         top_p: 0.7,
-        max_tokens: 4096,
+        max_tokens: fiel ? 1500 : 4096,
         response_format: { type: 'json_object' },
         // Sem isso, os modelos que "pensam" gastam todos os tokens raciocinando e passam de 60 s.
         chat_template_kwargs: { enable_thinking: false },
         messages: [
-          { role: 'system', content: SISTEMA },
-          { role: 'user', content: `Organize este texto de reunião:\n\n${texto}` },
+          { role: 'system', content: fiel ? SISTEMA_NUMEROS : SISTEMA },
+          { role: 'user', content: fiel ? `Extraia os números deste resumo de reunião:\n\n${texto}` : `Organize este texto de reunião:\n\n${texto}` },
         ],
       }),
     });
@@ -132,7 +148,7 @@ module.exports = async function handler(req, res) {
   const obj = extractJson(data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content);
   if (!obj) return send(res, 502, { erro: 'A IA não devolveu um resumo no formato esperado. Tente de novo.' });
 
-  const resumo = BM.sanitize(obj);
+  const resumo = fiel ? BM.compor(texto, BM.sanitize(obj).blocos) : BM.sanitize(obj);
   if (!resumo.blocos.length) return send(res, 502, { erro: 'A IA devolveu um resumo vazio. Tente de novo.' });
-  return send(res, 200, { resumo, modelo });
+  return send(res, 200, { resumo, modelo, modo: fiel ? 'fiel' : 'livre' });
 };

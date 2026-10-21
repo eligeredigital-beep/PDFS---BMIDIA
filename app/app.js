@@ -109,18 +109,23 @@ Próximos passos:
   function fitPaper() {
     if (!stage.clientWidth) return; // painel escondido (aba Texto no celular)
     const doc = frame.contentDocument;
+    const avail = stage.clientWidth - parseFloat(getComputedStyle(stage).paddingLeft) * 2;
+    const scale = Math.min(1, avail / 794);
     if (doc && doc.body) {
+      // Mede a altura real da página (sem redução) para contar as páginas.
+      doc.documentElement.style.zoom = '';
+      frame.style.width = '794px';
       frame.style.height = '0px';
       const h = doc.documentElement.scrollHeight;
       docHeight = Math.max(1123, h);
       // A4 útil ≈ 297mm − margens (16 + 20mm) ≈ 986px por página; a 1ª não tem margem de topo.
       const pages = h <= 1047 ? 1 : Math.ceil((h - 1047) / 986) + 1;
       $('pages').textContent = pages === 1 ? '1 página' : `cerca de ${pages} páginas`;
+      // Reduz com zoom (o navegador redesenha o texto nítido) em vez de transform (que embaça).
+      doc.documentElement.style.zoom = String(scale);
     }
-    const avail = stage.clientWidth - parseFloat(getComputedStyle(stage).paddingLeft) * 2;
-    const scale = Math.min(1, avail / 794);
-    frame.style.height = docHeight + 'px';
-    frame.style.transform = `scale(${scale})`;
+    frame.style.width = 794 * scale + 'px';
+    frame.style.height = docHeight * scale + 'px';
     wrap.style.width = 794 * scale + 'px';
     wrap.style.height = docHeight * scale + 'px';
   }
@@ -178,8 +183,12 @@ Próximos passos:
   $('download').addEventListener('click', () => {
     if (!frame.contentWindow) return;
     toast('Na janela que abrir, escolha “Salvar como PDF” como destino.');
+    const root = frame.contentDocument.documentElement;
+    const zoom = root.style.zoom;
+    root.style.zoom = ''; // o PDF sai em tamanho real, não no zoom da prévia
     frame.contentWindow.focus();
     frame.contentWindow.print();
+    root.style.zoom = zoom;
   });
 
   function renderAiStatus() {

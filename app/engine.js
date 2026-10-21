@@ -405,6 +405,35 @@ ${metaBits ? `<div class="meta">${metaBits}</div>` : ''}</header>
     return out;
   }
 
-  root.BM = { TIPOS, parse, build, buildDoc, sanitize };
+  /* ---------- Modo fiel ----------
+     Texto no modelo de resumo (títulos + marcadores): o conteúdo sai exatamente como foi escrito.
+     A IA só extrai números e destaques; ela nunca reescreve os alinhamentos. */
+  function isTemplate(texto) {
+    const { sections } = parse(texto);
+    const tipos = new Set(sections.map((s) => s.auto));
+    return sections.length >= 3 && tipos.has('checklist') && (tipos.has('cards') || tipos.has('atencao'));
+  }
+
+  function compor(texto, numeros) {
+    const { meta, sections } = parse(texto);
+    const base = sections.map((s) => build(s, s.auto));
+    const extra = (numeros || []).filter((b) => b.tipo === 'metricas' || b.tipo === 'destaque' || b.tipo === 'meta');
+    const nums = extra.filter((b) => b.tipo !== 'meta');
+    // Sem repetir o mesmo número em "Resultados" e "Destaques"; no máximo 6 cartões de resultado.
+    const vistos = new Set();
+    for (const b of nums) {
+      b.itens = b.itens.filter((i) => { const k = i.valor.replace(/\D/g, '') || i.valor; if (b.tipo === 'destaque' && vistos.has(k)) return false; vistos.add(k); return true; });
+      if (b.tipo === 'metricas') b.itens = b.itens.slice(0, 6);
+    }
+    for (let i = nums.length - 1; i >= 0; i--) if (!nums[i].itens.length) nums.splice(i, 1);
+    const metas = extra.filter((b) => b.tipo === 'meta');
+    const i0 = base.findIndex((b) => b.tipo === 'texto');
+    base.splice(i0 + 1, 0, ...nums);
+    const iA = base.findIndex((b) => b.tipo === 'atencao' || b.tipo === 'checklist');
+    base.splice(iA < 0 ? base.length : iA, 0, ...metas);
+    return sanitize({ cliente: meta.cliente, titulo: meta.titulo, data: meta.data, participantes: meta.participantes, blocos: base });
+  }
+
+  root.BM = { TIPOS, parse, build, buildDoc, sanitize, isTemplate, compor };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.BM;
 })();

@@ -3,7 +3,8 @@
 Gerador de PDFs de resumo de reunião no padrão visual da BMidia Digitais.
 
 - `app/` — app web: cole o texto da reunião, veja a prévia A4 e baixe o PDF. Abra `app/index.html` no navegador (funciona offline).
-- `bmidia-design-system/` — tokens de cor e tipografia, guia da marca e logos.
+- `bmidia-design-system/` — design system da BMidia e **skill do Claude** (tokens, guia da marca, logos). Veja o [guia de uso e instalação](bmidia-design-system/README.md).
+- `releases/bmidia-design-system.zip` — skill pronta para instalar; `empacotar-skill.sh` gera o zip de novo.
 - `bmidia-pdf-template/` — template original em Python (`generate.py`, requer WeasyPrint) e exemplos de JSON.
 
 ## Organizar com IA (NVIDIA)

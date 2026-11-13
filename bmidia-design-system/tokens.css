@@ -1,37 +1,59 @@
-/* BMidia Digitais — Design Tokens (extraídos do carrossel "Tayna.pdf") */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Hanken+Grotesk:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@400;500&family=Inter:wght@400;500&display=swap');
+/* BMidia Digitais — Design Tokens · Guia de marca oficial (Studio Sagi) + carrossel "Tayna.pdf" · atualizado 30/10/2026
+   Nome da marca: BMidia (sem S). */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Hanken+Grotesk:ital,wght@0,300;0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap');
+/* Nearo Rounded (fonte da marca, comercial): carregar os .woff2 locais do pacote FONTES/nearo-rounded */
+@font-face{font-family:'Nearo Rounded';src:url('fonts/NearoRounded-Light.woff2') format('woff2');font-weight:300}
+@font-face{font-family:'Nearo Rounded';src:url('fonts/NearoRounded-Regular.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Nearo Rounded';src:url('fonts/NearoRounded-Medium.woff2') format('woff2');font-weight:500}
+@font-face{font-family:'Nearo Rounded';src:url('fonts/NearoRounded-SemiBold.woff2') format('woff2');font-weight:600}
+@font-face{font-family:'Nearo Rounded';src:url('fonts/NearoRounded-Bold.woff2') format('woff2');font-weight:700}
 
 :root {
-  /* Cores de marca */
-  --bm-brown:        #876047; /* marrom principal (fundo dominante) */
-  --bm-brown-deep:   #662900; /* marrom profundo (textos/blocos em fundo claro) */
-  --bm-brown-text:   #94430D; /* marrom-ferrugem (texto sobre creme) */
-  --bm-olive:        #6C6948; /* verde oliva (capa/mockups) */
-  --bm-beige:        #CABDAA; /* bege do logo */
-  --bm-sand:         #DFD2C1; /* areia (texto sobre fundos escuros) */
-  --bm-cream:        #FFF8EF; /* creme (fundos claros) */
-  --bm-offwhite:     #F7F6F1; /* off-white (fundos de cards) */
-  --bm-dark:         #1B1B13; /* quase-preto oliva (overlays) */
-  --bm-dark-brown:   #61544F; /* marrom-acinzentado (overlay de foto) */
-  --bm-gold:         #DFB956; /* dourado (variação buffets) */
-  --bm-red:          #CD2438; /* vermelho (destaque de palavra-chave) */
+  /* PALETA OFICIAL — Primária */
+  --bm-linho:          #E3DFD4; /* 04 linho claro: fundos neutros */
+  --bm-brown:          #876047; /* 05 marrom principal */
+  --bm-grafite:        #2F2D2E; /* 06 grafite: texto escuro de marca */
+  /* PALETA OFICIAL — Secundária */
+  --bm-verde-profundo: #283C3A; /* 01 verde quase-preto */
+  --bm-olive:          #6D6A38; /* 02 verde oliva (antes #6C6948) */
+  --bm-beige:          #CABDAA; /* 03 bege do logo/ícone */
+  /* Aplicação da marca */
+  --bm-branco-marca:   #F6F6F6; /* logo/ícone negativo */
+  --bm-preto-marca:    #1D1D1B; /* logo/ícone positivo */
+  --bm-cinza-20:       #DADADA;
+  --bm-cinza-60:       #878787;
+  --bm-oliva-claro:    #B7AD27; /* só detalhe do arco oliva */
+
+  /* Complementares (carrosséis e PDF) */
+  --bm-brown-deep:   #662900;
+  --bm-brown-text:   #94430D;
+  --bm-sand:         #DFD2C1;
+  --bm-cream:        #FFF8EF;
+  --bm-offwhite:     #F7F6F1;
+  --bm-dark:         #1B1B13;
+  --bm-dark-brown:   #61544F;
+  --bm-gold:         #DFB956;
+  --bm-red:          #CD2438;
+  --bm-alert-tint:   #F3E6C9;
   --bm-white:        #FFFFFF;
   --bm-black:        #000000;
 
   /* Fontes */
-  --font-display: 'Tan Aegean', 'Playfair Display', Georgia, serif; /* títulos elegantes */
-  --font-body:    'Montserrat', 'Hanken Grotesk', 'Helvetica Neue', Arial, sans-serif;
-  --font-ui:      'Hanken Grotesk', 'Inter', sans-serif; /* subtítulos/linhas finas */
-  --font-impact:  'Helvetica World', 'Helvetica Neue', Arial, sans-serif; /* faixas de impacto (bold, caixa alta) */
+  --font-marca:   'Nearo Rounded', 'Montserrat', 'Helvetica Neue', Arial, sans-serif; /* títulos da marca H1/H2/H3 */
+  --font-body:    'Montserrat', 'Hanken Grotesk', 'Helvetica Neue', Arial, sans-serif; /* texto (marca e redes) */
+  --font-social:  'Hanken Grotesk', Helvetica, 'Helvetica Neue', Arial, sans-serif;   /* HK Grotesk: redes sociais, números */
+  --font-impact:  Helvetica, 'Helvetica World', 'Helvetica Neue', Arial, sans-serif;  /* faixas de impacto */
+  --font-display: 'Tan Aegean', 'Playfair Display', Georgia, serif;                   /* serifa editorial (carrosséis atuais e PDF; não consta no guia) */
+  --font-ui:      var(--font-social);
 
   /* Escala tipográfica (base 1080x1350) */
   --fs-display: 96px;  --fs-h1: 72px; --fs-h2: 56px; --fs-h3: 40px;
   --fs-body: 32px;     --fs-small: 24px; --fs-caption: 20px;
   --lh-tight: 0.95;    --lh-body: 1.45;
-  --ls-wide: 0.18em;   /* "DIGITAIS", rótulos espaçados */
+  --ls-wide: 0.18em;   --ls-marca: 0.3em; /* "DIGITAIS" */
 
   /* Forma */
-  --radius-pill: 999px; --radius-card: 24px; --radius-block: 0;
+  --radius-pill: 999px; --radius-card: 24px; --radius-doc: 8px; --radius-block: 0;
   --space-1: 8px; --space-2: 16px; --space-3: 24px; --space-4: 40px; --space-5: 64px;
   --page-margin: 96px;
 }

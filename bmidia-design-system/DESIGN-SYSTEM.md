@@ -48,3 +48,19 @@ Premium acolhedor: tons terrosos, fotografia de confeitaria, tipografia editoria
 
 ## 6. Pares de cor recomendados (texto × fundo)
 - sand/cream sobre brown · brownText sobre cream · brownDeep + red sobre offWhite · sand sobre dark.
+
+---
+
+## 7. Atualização — Guia de marca oficial (30/10/2026)
+Fonte: `APRESENTACAO-MARCA-BMIDIAS.pdf` (Studio Sagi, 30 páginas). O wordmark do pacote está grafado "Bmidias" e foi descartado: o nome é **BMidia**.
+
+- **Paleta oficial:** secundária 01 #283C3A (verde-profundo), 02 #6D6A38 (olive, antes #6C6948), 03 #CABDAA (beige); primária 04 #E3DFD4 (linho), 05 #876047 (brown), 06 #2F2D2E (grafite). Aplicação: #F6F6F6, #1D1D1B, cinzas #DADADA e #878787, detalhe #B7AD27.
+- **Fontes da marca:** Nearo Rounded + Montserrat. **Redes sociais:** HK Grotesk, Helvetica, Montserrat. Tan Aegean não consta no guia.
+- **Logo:** wordmark "Bmidia" (arquivos em `logos/bmidia-logo-*.png`) + ícone "bm" + DIGITAIS em 4 cores, positivo/negativo e escala de cinza (`logos/bmidia-icone-*.svg`). Ícone para espaços quadrados/pequenos.
+- **Elementos:** arcos concêntricos em 6 cores e 6 patterns do monograma.
+- **Conceito:** Autoridade, Especialização, Transformação, Estratégia, Segurança, Inovação, Impacto, Confiança. Manifesto "Transformamos negócios, prosperamos pessoas, impactamos famílias. Isso é Bmidia!". Assinatura "A revolução do tráfego pago na confeitaria!".
+
+### Regras de uso novas
+- Títulos institucionais novos: Nearo Rounded (Light para H1). Carrosséis e o PDF de resumo podem seguir com a serifa Tan Aegean/Playfair.
+- Pares de texto: cream sobre verde-profundo (11.1:1), grafite (13.0:1), brown/olive (5.3:1); grafite sobre linho (10.3:1). linho sobre brown/olive só 24px+ (4.2:1). beige sobre olive/brown só logo e arcos (3.0:1).
+- Arcos: uma cor por peça, grandes, sangrando pela borda. Patterns: embalagens, fitas e fundos discretos, nunca atrás de texto pequeno.
